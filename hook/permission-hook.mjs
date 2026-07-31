@@ -396,6 +396,15 @@ async function hosted(cfg, { tool, summary, detail, cwd, questions, trace }) {
     signal: AbortSignal.timeout(10_000),
   });
   const body = await res.json().catch(() => ({}));
+  // Named rather than left as a bare error code: this is the one failure a user can
+  // cause themselves, and "rate_limited" alone reads like a bug. It still ends where
+  // every other failure ends — no decision, terminal prompt.
+  if (res.status === 429) {
+    throw new Error(
+      `rate limited (${body.scope === 'minute' ? '10/min' : '60/hour'} per device)`
+      + `${body.retry_after ? ` — retry in ${body.retry_after}s` : ''}`,
+    );
+  }
   if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
   if (body.warning) log(`onesignal: ${body.warning}`);
   log(`sent ${tool} → ${body.request_id}`);

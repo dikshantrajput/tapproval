@@ -3,7 +3,7 @@ import { insertOne } from '../_shared/db.ts';
 import { deviceFromMachineToken } from '../_shared/auth.ts';
 import { signRealtimeToken } from '../_shared/jwt.ts';
 import { dryRunPush, sendPush } from '../_shared/push.ts';
-import { baseUrl } from '../_shared/base.ts';
+import { baseUrl, notifyRateLimit } from '../_shared/base.ts';
 import { env } from '../_shared/env.ts';
 
 /**
@@ -55,6 +55,17 @@ export const handler = route(['POST'], async (req) => {
   // Must mirror the hook's own wait exactly. Once past it nobody is listening, so
   // a late tap has to be told "timed out" instead of being counted as a success.
   const expiresAt = new Date(Date.now() + timeoutSec * 1000).toISOString();
+
+  // Durable, per-device, and checked before anything is spent — this is the only
+  // route that costs an OneSignal send and a row on every call. A refusal here is
+  // safe by the same rule as every other failure: the hook throws, emits no
+  // decision, and the prompt falls through to the terminal. It never approves.
+  const rate = await notifyRateLimit(device.id);
+  at('ratelimit');
+  if (!rate.ok) {
+    console.warn(`[notify] rate limited ${device.id} (${rate.scope})`);
+    return json(429, { error: 'rate_limited', scope: rate.scope, retry_after: rate.retryAfter });
+  }
 
   const row = await insertOne('requests', {
     device_id: device.id,

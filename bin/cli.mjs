@@ -153,6 +153,18 @@ async function setupHosted() {
       body: JSON.stringify({ label: hostname() }),
       signal: AbortSignal.timeout(15_000),
     });
+    // A 429 here is the one registration failure with a real explanation, and
+    // re-running setup is exactly what someone hits it by doing. Say so, rather
+    // than reporting a bare status code they cannot act on.
+    if (res.status === 429) {
+      throw new Error(
+        'too many registrations from this network today.\n'
+        + '  Each setup registers a new device. If you were re-running it to fix\n'
+        + '  something, try `tapproval doctor` first — it usually finds the problem\n'
+        + '  without a fresh device. Otherwise wait an hour, or self-host:\n'
+        + '  tapproval setup --self-hosted',
+      );
+    }
     if (!res.ok) throw new Error(`could not register with ${apiBase} (HTTP ${res.status})`);
     const d = await res.json();
 

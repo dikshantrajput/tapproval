@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run -A
 /**
- * Drives all seven hosted API routes end to end against an in-memory PostgREST
+ * Drives every hosted API route end to end against an in-memory PostgREST
  * shim, so the whole flow — register, mint a code, claim it, notify, decide — is
  * exercised without a Supabase project.
  *
@@ -15,9 +15,9 @@
  *
  * The shim implements only what _shared/db.ts actually sends through
  * @supabase/supabase-js: eq / is.null / gt / gte filters, order, limit, select,
- * PATCH-with-filter returning the updated rows, HEAD for the health probe's
- * count, and the `vnd.pgrst.object+json` Accept that `.single()` sets. It is a
- * test double, not a Postgres — but the filters it enforces are exactly the ones
+ * PATCH-with-filter returning the updated rows, and the `vnd.pgrst.object+json`
+ * Accept that `.single()` sets. It is a test double, not a Postgres — but the
+ * filters it enforces are exactly the ones
  * the security properties rest on, so a handler that forgets to scope a query
  * fails here.
  */
@@ -31,7 +31,13 @@ const check = (name: string, pass: boolean, detail = '') => {
 /* ------------------------------------------------------------ PostgREST shim */
 
 type Row = Record<string, any>;
-const tables: Record<string, Row[]> = { devices: [], phones: [], pair_codes: [], requests: [] };
+const tables: Record<string, Row[]> = {
+  devices: [],
+  phones: [],
+  pair_codes: [],
+  requests: [],
+  ip_events: [],
+};
 
 const matches = (row: Row, params: [string, string][]) => {
   for (const [col, expr] of params) {
@@ -78,16 +84,6 @@ const pg = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen: () => {} }, as
         ? jsonRes(out[0], status)
         : jsonRes({ code: 'PGRST116', message: `${out.length} rows returned` }, 406))
       : jsonRes(out, status);
-
-  // The health probe: `select('*', { count: 'exact', head: true })`. Body-less,
-  // the count rides in Content-Range.
-  if (req.method === 'HEAD') {
-    const n = rows.filter((r) => matches(r, params)).length;
-    return new Response(null, {
-      status: 200,
-      headers: { 'content-range': `0-${Math.max(n - 1, 0)}/${n}` },
-    });
-  }
 
   if (req.method === 'GET') {
     let out = rows.filter((r) => matches(r, params));
@@ -159,7 +155,6 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   cancel: (await import(`${F}/cancel/index.ts`)).handler,
   'local-decide': (await import(`${F}/local-decide/index.ts`)).handler,
   request: (await import(`${F}/request/index.ts`)).handler,
-  health: (await import(`${F}/health/index.ts`)).handler,
 };
 
 interface CallOpts {
@@ -167,18 +162,21 @@ interface CallOpts {
   body?: unknown;
   token?: string;
   query?: string;
+  /** Overrides the forwarded client address, for the per-IP limit checks. */
+  ip?: string;
 }
 
 /** Builds the same Request the Vercel proxy would forward to the function. */
 async function call(
   name: string,
-  { method = 'POST', body, token, query = '' }: CallOpts = {},
+  { method = 'POST', body, token, query = '', ip }: CallOpts = {},
 ): Promise<{ status: number; body: any }> {
   const req = new Request(`https://example.test/api/${name}${query}`, {
     method,
     headers: {
       'user-agent': 'verify/1.0',
       'content-type': 'application/json',
+      ...(ip ? { 'x-forwarded-for': ip } : {}),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
     ...(body === undefined || method === 'GET' ? {} : { body: JSON.stringify(body) }),
@@ -604,17 +602,141 @@ console.log('\nlocal-decide');
   );
 }
 
-console.log('\nhealth');
+/**
+ * The per-IP limits on the two unauthenticated routes.
+ *
+ * The durable counter is seeded directly rather than driven through the handler,
+ * because the in-memory bucket in front of it (5/min) would fire long before the
+ * daily cap and we would be testing the wrong gate. Both are asserted, separately.
+ */
+console.log('\nper-IP limits');
+{
+  const hash = async (s: string) => {
+    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
+  const seed = async (ip: string, kind: string, n: number) => {
+    for (let i = 0; i < n; i++) {
+      tables.ip_events.push({
+        id: crypto.randomUUID(),
+        ip_hash: await hash(ip),
+        kind,
+        created_at: new Date(Date.now() - 1000).toISOString(),
+      });
+    }
+  };
 
-const health = await call('health', { method: 'GET' });
-check('GET /api/health probes every table', Object.values(health.body.tables).every((v) => v === 'ok'),
-  JSON.stringify(health.body.tables));
-check('reports env presence as booleans only',
-  Object.values(health.body.env).every((v) => typeof v === 'boolean'));
-check('and echoes no secret value',
-  !JSON.stringify(health.body).includes('service-role-test'));
-check('missing secrets keep it not-ready',
-  health.body.ready === false && health.body.env.ONESIGNAL_API_KEY === false);
+  check('a fresh address may register', (await call('devices', { ip: '10.0.0.1' })).status === 200);
+  check('the in-memory gate still fires on a burst', await (async () => {
+    const codes = [];
+    for (let i = 0; i < 6; i++) codes.push((await call('devices', { ip: '10.0.0.2' })).status);
+    return codes.filter((s) => s === 429).length > 0;
+  })());
+
+  await seed('10.0.0.9', 'register', 20);
+  const capped = await call('devices', { ip: '10.0.0.9' });
+  check('20 registrations in a day → 429', capped.status === 429, JSON.stringify(capped));
+  check('and names the window', capped.body?.scope === 'day');
+
+  /**
+   * The reason clientIp reads the LAST hop. x-forwarded-for is append-only, so
+   * the first entry is whatever the caller typed — if that were the one counted,
+   * a limited address would escape its own bucket by prepending a fake.
+   */
+  const spoofed = await call('devices', { ip: '1.2.3.4, 10.0.0.9' });
+  check('a forged leading XFF hop does not escape the limit', spoofed.status === 429,
+    JSON.stringify(spoofed));
+
+  // Claim counts misses, not pairings.
+  const fresh = await call('devices', { ip: '10.0.1.1' });
+  const fkey = newPayloadKey();
+  const fcode = (await call('pair-codes', {
+    token: fresh.body.machine_token,
+    body: { payload_key: fkey },
+  })).body.code;
+  const before = tables.ip_events.filter((e: any) => e.kind === 'claim').length;
+  check('a successful claim → 200', (await call('claim', { body: { code: fcode }, ip: '10.0.1.1' })).status === 200);
+  check('and is not counted against the address',
+    tables.ip_events.filter((e: any) => e.kind === 'claim').length === before);
+
+  check('a miss is counted',
+    (await call('claim', { body: { code: 'ZZZZZZ' }, ip: '10.0.2.1' })).status === 410
+    && tables.ip_events.some((e: any) => e.kind === 'claim'));
+  check('a malformed code is counted too', await (async () => {
+    const n = tables.ip_events.filter((e: any) => e.kind === 'claim').length;
+    const res = await call('claim', { body: { code: 'nope' }, ip: '10.0.2.1' });
+    return res.status === 400
+      && tables.ip_events.filter((e: any) => e.kind === 'claim').length === n + 1;
+  })());
+
+  await seed('10.0.3.1', 'claim', 30);
+  const guessed = await call('claim', { body: { code: 'ABCDEF' }, ip: '10.0.3.1' });
+  check('30 failed claims in an hour → 429', guessed.status === 429, JSON.stringify(guessed));
+  check('and names the window', guessed.body?.scope === 'hour');
+}
+
+/**
+ * The per-device notify limit.
+ *
+ * Runs on its own device, because the count is over rows this device already
+ * created and the flow above has been making them. `tables.requests` is the proof
+ * that a refusal is free: a 429 must add no row, which is the whole point of
+ * checking before the insert rather than after it.
+ */
+console.log('\nnotify rate limit');
+{
+  const reg = await call('devices', { body: { label: 'noisy' } });
+  const token = reg.body.machine_token;
+  const id = reg.body.device_id;
+  const mine = () => tables.requests.filter((r: any) => r.device_id === id);
+
+  const fire = () => call('notify', {
+    token,
+    body: { tool: 'Bash', payload_ciphertext: ciphertext, timeout_sec: 60 },
+  });
+
+  const first10 = [];
+  for (let i = 0; i < 10; i++) first10.push((await fire()).status);
+  check('the first 10 in a minute are allowed', first10.every((s) => s === 200), String(first10));
+
+  const blocked = await fire();
+  check('the 11th → 429', blocked.status === 429, JSON.stringify(blocked));
+  check('and says which window it hit', blocked.body?.scope === 'minute', JSON.stringify(blocked.body));
+  check('with a retry-after inside the window',
+    blocked.body?.retry_after > 0 && blocked.body?.retry_after <= 60, String(blocked.body?.retry_after));
+  check('a refused call creates no row', mine().length === 10, String(mine().length));
+
+  // Age the minute window out from under it. The hourly budget still has room, so
+  // this must go through — proving the two windows are independent.
+  for (const r of mine()) r.created_at = new Date(Date.now() - 120_000).toISOString();
+  check('once the minute passes it is allowed again', (await fire()).status === 200);
+
+  // Fill the hour. 60 rows inside the window, all older than a minute, so only the
+  // hourly cap can be what refuses the next one.
+  const hourAgo = Date.now() - 1_800_000;
+  while (mine().length < 60) {
+    tables.requests.push({
+      id: crypto.randomUUID(),
+      device_id: id,
+      tool: 'Bash',
+      payload_ciphertext: ciphertext,
+      status: 'expired',
+      created_at: new Date(hourAgo).toISOString(),
+      expires_at: new Date(hourAgo + 60_000).toISOString(),
+    });
+  }
+  const hourly = await fire();
+  check('the 60th in an hour → 429', hourly.status === 429, JSON.stringify(hourly));
+  check('and names the hour window', hourly.body?.scope === 'hour', JSON.stringify(hourly.body));
+
+  // The limit is per device, not global. A second tenant sharing the deployment
+  // must be unaffected by this one's noise.
+  const other = await call('devices', { body: { label: 'quiet' } });
+  check('another device is unaffected', (await call('notify', {
+    token: other.body.machine_token,
+    body: { tool: 'Bash', payload_ciphertext: ciphertext, timeout_sec: 60 },
+  })).status === 200);
+}
 
 console.log('\nmethod + preflight');
 

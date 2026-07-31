@@ -28,7 +28,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 const FUNCTIONS_BASE = (process.env.FUNCTIONS_BASE ?? 'http://127.0.0.1:54321/functions/v1')
   .replace(/\/$/, '');
 
-const ROUTES = ['devices', 'pair-codes', 'claim', 'notify', 'decide', 'request', 'health'];
+const ROUTES = ['devices', 'pair-codes', 'claim', 'notify', 'decide', 'request'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

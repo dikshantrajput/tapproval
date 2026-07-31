@@ -40,5 +40,3 @@ verify_jwt = false
 [functions.request]
 verify_jwt = false
 
-[functions.health]
-verify_jwt = false

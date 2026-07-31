@@ -1,7 +1,14 @@
 import { json, readBody, route, serve } from '../_shared/http.ts';
 import { gt, insertOne, isNull, updateWhere } from '../_shared/db.ts';
 import { newToken, sha256 } from '../_shared/auth.ts';
-import { clientIp, throttle } from '../_shared/base.ts';
+import {
+  CLAIM_FAILURES_PER_HOUR,
+  clientIp,
+  HOUR_MS,
+  ipOverLimit,
+  ipRecord,
+  throttle,
+} from '../_shared/base.ts';
 import { env } from '../_shared/env.ts';
 
 /**
@@ -19,10 +26,23 @@ export const handler = route(['POST'], async (req) => {
   if (!throttle(`claim:${clientIp(req)}`, 20, 60_000)) {
     return json(429, { error: 'rate_limited' });
   }
+  // Six characters from a 31-symbol alphabet is ~29.7 bits, which is plenty
+  // against one attacker and thin against a patient distributed one — the space
+  // that matters is not the alphabet, it is the handful of codes live at any
+  // moment. Counting only failures is what makes this a guessing limit rather
+  // than a pairing limit.
+  if (await ipOverLimit(req, 'claim', CLAIM_FAILURES_PER_HOUR, HOUR_MS)) {
+    console.warn('[claim] rate limited (too many failed attempts)');
+    return json(429, { error: 'rate_limited', scope: 'hour' });
+  }
 
   const body = await readBody(req);
   const code = String(body.code ?? '').trim().toUpperCase();
-  if (!/^[A-Z2-9]{6}$/.test(code)) return json(400, { error: 'bad_code' });
+  if (!/^[A-Z2-9]{6}$/.test(code)) {
+    // A malformed code is the cheapest possible probe, so it counts too.
+    await ipRecord(req, 'claim');
+    return json(400, { error: 'bad_code' });
+  }
 
   // Claim and validate in one statement: unclaimed AND unexpired, or nothing.
   const [claimed] = await updateWhere(
@@ -34,7 +54,13 @@ export const handler = route(['POST'], async (req) => {
     },
     { claimed_at: new Date().toISOString() },
   );
-  if (!claimed) return json(410, { error: 'code_expired_or_used' });
+  if (!claimed) {
+    // No live code matched: a guess, a typo, a reused code, or an expired one.
+    // Indistinguishable from here, and all four are counted the same — the point
+    // is the rate of misses, not which kind they were.
+    await ipRecord(req, 'claim');
+    return json(410, { error: 'code_expired_or_used' });
+  }
 
   const phoneToken = newToken();
   const phone = await insertOne('phones', {

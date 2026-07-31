@@ -8,15 +8,14 @@
  * the hook's Realtime token without it.
  *
  * Reads go through here rather than touching Deno.env inline so that a missing
- * variable is one legible throw (and /api/health can report presence without
- * ever echoing a value).
+ * variable is one legible throw, at the point of use, naming the variable.
  */
 
 export function env(name: string): string | undefined {
   try {
     return Deno.env.get(name) || undefined;
   } catch {
-    // No --allow-env. Treat as absent; /api/health will say so.
+    // No --allow-env. Treat as absent — requireEnv() then throws by name.
     return undefined;
   }
 }
@@ -37,13 +36,4 @@ export function requireEnv(name: string): string {
   const v = env(name);
   if (!v) throw new Error(`${name} not set`);
   return v;
-}
-
-/** Names only — never values. Used by /api/health. */
-export function envNames(): string[] {
-  try {
-    return Object.keys(Deno.env.toObject());
-  } catch {
-    return [];
-  }
 }

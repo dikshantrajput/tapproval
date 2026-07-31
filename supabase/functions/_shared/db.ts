@@ -133,11 +133,3 @@ export async function updateWhere(table: string, match: Filters, patch: Row): Pr
   const q: any = applyFilters(db().from(table).update(patch), match);
   return (unwrap(await q.select()) ?? []) as Row[];
 }
-
-/**
- * Cheap "does this table exist and can we reach it" probe for /api/health.
- * `head: true` means no rows cross the wire — only the count header.
- */
-export async function probe(table: string): Promise<void> {
-  unwrap(await db().from(table).select('*', { count: 'exact', head: true }) as any);
-}

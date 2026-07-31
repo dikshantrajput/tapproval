@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24 # ships npm 11.x, which supports trusted publishing (OIDC)
           registry-url: https://registry.npmjs.org
 
       - name: Check tag matches package.json version
@@ -29,9 +29,6 @@ jobs:
             echo "package.json version ($pkg) does not match tag ($tag)" >&2
             exit 1
           fi
-
-      # Trusted publishing (OIDC) needs npm >= 11.5.1; Node 20 ships npm 10.
-      - run: npm install -g npm@latest
 
       - run: npm ci
 

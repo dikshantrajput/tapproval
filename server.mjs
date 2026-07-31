@@ -487,9 +487,13 @@ const server = createServer(async (req, res) => {
 
   // --- static ---------------------------------------------------------------
   // /p/<deviceId> is the QR target: the page lifts the token out of the URL
-  // into localStorage, then rewrites to "/".
-  if (path === '/' || path.startsWith('/r/') || path.startsWith('/p/')) {
-    if (await serveStatic(res, 'index.html')) return;
+  // into localStorage, then rewrites to "/app".
+  //
+  // Self-hosted has no use for the landing page — this server exists to talk to
+  // one phone that is already sold on the idea — so "/" is the app here, and
+  // /app is served too because that is where the shell rewrites itself to.
+  if (path === '/' || path === '/app' || path.startsWith('/r/') || path.startsWith('/p/')) {
+    if (await serveStatic(res, 'app.html')) return;
   }
   if (await serveStatic(res, path.replace(/^\//, ''))) return;
 

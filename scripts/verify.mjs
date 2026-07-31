@@ -81,8 +81,8 @@ async function runHook(hookConfig, event = DEFAULT_EVENT) {
   const home = mkdtempSync(join(tmpdir(), 'aap-verify-'));
   const { mkdirSync } = await import('node:fs');
   mkdirSync(join(home, '.claude'), { recursive: true });
-  // No grace period unless a case asks for one. It defaults to 30s in real config,
-  // and every case here is about what happens *after* the push goes out — paying
+  // No grace period unless a case asks for one. It is 0 in real config too, and
+  // every case here is about what happens *after* the push goes out — paying
   // that pause in each of them would add minutes to the suite and prove nothing.
   // The grace period has its own group, which sets it deliberately.
   writeFileSync(
@@ -1013,6 +1013,83 @@ console.log('\nnpx vendoring');
     check('vendoring again is a no-op, not a re-copy', again === vendored);
   } finally {
     process.env.HOME = prevHome;
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+/* ------------------------------------------------- settings.json is not ours */
+
+/**
+ * Uninstall touches the one file the user cannot afford to lose, so the invariant
+ * is narrow: remove our hook entries, and nothing else — not their events, not
+ * their groups, not their matchers, and not a hook of theirs that happens to sit
+ * in the same group as one of ours.
+ */
+console.log('\nuninstall leaves foreign hooks alone');
+{
+  const home = mkdtempSync(join(tmpdir(), 'aap-settings-'));
+  try {
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    const file = join(home, '.claude', 'settings.json');
+    const original = {
+      model: 'opus',
+      permissions: { allow: ['Bash(ls:*)', 'Read'], deny: ['Bash(rm:*)'] },
+      hooks: {
+        UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node /me/prompt.mjs' }] }],
+        Notification: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node /me/notify.mjs', timeout: 5 }] }],
+        // Second group shares an event with ours; the third case below plants one
+        // of our commands *inside* one of their groups.
+        Stop: [{ hooks: [{ type: 'command', command: 'node /me/stop.mjs' }] }],
+      },
+    };
+    const settings = () => JSON.parse(execFileSync('cat', [file], { encoding: 'utf8' }));
+    const run = (...args) => execFileSync(
+      process.execPath, [join(ROOT, 'scripts', 'install-hook.mjs'), ...args],
+      { env: { ...process.env, HOME: home }, encoding: 'utf8' },
+    );
+
+    writeFileSync(file, JSON.stringify(original, null, 2));
+    run();
+    run();                       // twice: installing must not stack duplicates
+    const installed = settings();
+    check('install does not disturb their hooks',
+      JSON.stringify(installed.hooks.UserPromptSubmit) === JSON.stringify(original.hooks.UserPromptSubmit)
+      && JSON.stringify(installed.hooks.Notification) === JSON.stringify(original.hooks.Notification));
+    check('installing twice does not duplicate ours',
+      installed.hooks.PermissionRequest.length === 1);
+
+    run('--remove');
+    const removed = settings();
+    check('remove restores the file exactly', JSON.stringify(removed) === JSON.stringify(original),
+      JSON.stringify(removed.hooks));
+
+    // A group holding both their command and ours. Dropping the group whole would
+    // take `also-mine.mjs` with it — and would look like a clean uninstall.
+    const shared = JSON.parse(JSON.stringify(original));
+    shared.hooks.Stop.push({
+      matcher: 'shared',
+      hooks: [
+        { type: 'command', command: 'node /me/also-mine.mjs' },
+        { type: 'command', command: 'node /wherever/hook/reconcile-hook.mjs', timeout: 20 },
+      ],
+    });
+    writeFileSync(file, JSON.stringify(shared, null, 2));
+    run('--remove');
+    const mixed = settings();
+    const sharedGroup = (mixed.hooks?.Stop ?? []).find((g) => g.matcher === 'shared');
+    check('a hook sharing a group with ours survives',
+      !!sharedGroup && JSON.stringify(sharedGroup.hooks) ===
+        JSON.stringify([{ type: 'command', command: 'node /me/also-mine.mjs' }]),
+      JSON.stringify(mixed.hooks?.Stop));
+    check('and ours is gone from it',
+      !JSON.stringify(mixed).includes('reconcile-hook.mjs'));
+
+    // Nothing of ours anywhere: a no-op, not an edit.
+    writeFileSync(file, JSON.stringify(original, null, 2));
+    run('--remove');
+    check('remove with nothing installed changes nothing',
+      JSON.stringify(settings()) === JSON.stringify(original));
+  } finally {
     rmSync(home, { recursive: true, force: true });
   }
 }

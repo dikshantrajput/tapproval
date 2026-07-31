@@ -29,9 +29,10 @@ set the grace period with `tapproval notify --grace=N`, which does it for you. S
 [Tuning it](internals.md#tuning-it).
 
 **The phone never buzzes, but `doctor` is all green.**
-Check the grace period line. At `graceSec: 30` a prompt you answer within thirty
-seconds is *designed* to never reach your phone — `doctor` prints the value for
-exactly this reason. `tapproval notify --grace=0` to see a push immediately.
+Check the grace period line. It is 0 by default, but if you raised it — say
+`graceSec: 30` — a prompt you answer within those thirty seconds is *designed* to
+never reach your phone. `doctor` prints the value for exactly this reason.
+`tapproval notify --grace=0` to see a push immediately.
 
 **Notification arrives, buttons do nothing (Android).**
 Stale service worker. Chrome → Settings → Site settings → your domain →

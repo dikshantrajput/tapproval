@@ -132,7 +132,8 @@ could have reached for a phone — so the notification arrives for something alr
 decided. It buzzes, you look, there is nothing to do. Enough of those and the
 notification stops meaning anything, which is the only way this tool really fails.
 
-So the push is held back for `graceSec` (30 by default). During the pause the hook
+So the push can be held back for `graceSec` — 0 by default, meaning no pause at
+all, and any value above 0 opts into one. During the pause the hook
 watches the transcript for **this exact call** being answered; if it is, nothing is
 ever created — no row, no push, nothing on your phone to dismiss. If the pause
 passes in silence you are not at the keyboard, and the phone rings.
@@ -151,12 +152,13 @@ would silence its own notifications.
 ```bash
 tapproval notify --grace=10     # buzz sooner — 10s at the keyboard, then the phone
 tapproval notify --grace=60     # a minute of quiet before anything reaches the phone
-tapproval notify --grace=0      # no pause at all: notify immediately
+tapproval notify --grace=0      # the default: no pause at all, notify immediately
 ```
 
-Accepted range is 0–300 seconds. The right value is a personal measurement, not a
-default anyone can pick for you: **how long you take to notice and answer a prompt
-when you are already at the machine.** Set it just above that.
+Accepted range is 0–300 seconds. It ships at 0 so a prompt reaches the phone
+immediately; the right non-zero value is a personal measurement, not a default
+anyone can pick for you: **how long you take to notice and answer a prompt when you
+are already at the machine.** Set it just above that.
 
 - Too **low** and you get notifications for prompts you were about to answer
   anyway. Nothing breaks, but they train you to ignore the buzz — which is the one

@@ -45,7 +45,7 @@ tapproval mute / unmute         stop / resume phone notifications
 tapproval notify Bash Edit      buzz for these tools only
 tapproval notify --skip Read    buzz for everything except these
 tapproval notify --all          buzz for every prompt (the default)
-tapproval notify --grace=10     hold the push 10s (default 30, 0 = at once)
+tapproval notify --grace=10     hold the push 10s (default 0 = at once)
 tapproval setup --self-hosted   your own OneSignal app + tunnel
 tapproval start                 the local server (self-hosted only)
 ```
@@ -91,11 +91,11 @@ tapproval notify --all          # back to the default
 tapproval notify --grace=60     # or just make the phone wait longer
 ```
 
-**The grace period is usually the right first move.** The push is held back for
-`graceSec` (30 by default) while the hook watches for you answering in the
+**The grace period is usually the right first move.** With `graceSec` above 0 the
+push is held back that long while the hook watches for you answering in the
 terminal. If you do, nothing is ever created — no row, no push, nothing to
-dismiss. Set it just above how long you take to answer a prompt when you are
-already at the keyboard. Details in
+dismiss. It is 0 by default (the phone buzzes at once); set it just above how long
+you take to answer a prompt when you are already at the keyboard. Details in
 [the grace period](docs/internals.md#the-push-waits-before-it-buzzes).
 
 Nothing is dropped by staying quiet: a prompt that does not go to the phone is a
@@ -127,7 +127,7 @@ payload key.
 |---|---|---|
 | `mode` | `hosted` | or `self-hosted` |
 | `timeoutSec` | 300 | how long the hook waits for your phone |
-| `graceSec` | 30 | hold the push back this long; 0 notifies immediately |
+| `graceSec` | 0 | 0 notifies immediately; above 0 holds the push back that long |
 | `apiBase` | the public deployment | hosted |
 | `publicUrl` | — | self-hosted: your tunnel, no trailing slash |
 | `port` | 8787 | self-hosted |

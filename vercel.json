@@ -11,8 +11,9 @@
       "destination": "https://awfdrhvlvasdllxavqmm.supabase.co/functions/v1/:path*"
     },
     { "source": "/", "destination": "/index.html" },
-    { "source": "/p/:code", "destination": "/index.html" },
-    { "source": "/r/:id", "destination": "/index.html" }
+    { "source": "/app", "destination": "/app.html" },
+    { "source": "/p/:code", "destination": "/app.html" },
+    { "source": "/r/:id", "destination": "/app.html" }
   ],
   "headers": [
     {

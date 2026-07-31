@@ -537,7 +537,7 @@ async function notify() {
     console.log('    notify Bash Edit Write      only these tools');
     console.log('    notify --skip Read Glob     everything except these');
     console.log('    notify --all                every prompt');
-    console.log('    notify --grace=10           hold the push 10s (default 30, 0 = at once)\n');
+    console.log('    notify --grace=10           hold the push 10s (default 0 = at once)\n');
     return;
   }
   // The two lists are exclusive on purpose: an allowlist and a blocklist together
@@ -764,7 +764,7 @@ ${c.b('tapproval')} — approve your agent's permission prompts from your phone
   ${c.b('notify Bash Edit')}                buzz for these tools only
   ${c.b('notify --skip Read Glob')}         buzz for everything except these
   ${c.b('notify --all')}                    buzz for every prompt (the default)
-  ${c.b('notify --grace=10')}               hold the push 10s (default 30, 0 = at once)
+  ${c.b('notify --grace=10')}               hold the push 10s (default 0 = at once)
 
   ${c.b('pair --ios')} / ${c.b('--android')} / ${c.b('--desktop')}   skip the question
   ${c.b('pair --code')}                     just a code, for an already-installed app

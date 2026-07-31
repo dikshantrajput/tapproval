@@ -100,8 +100,11 @@ const server = createServer(async (req, res) => {
   if (path.startsWith('/api/')) return proxy(req, res, path, url.search);
 
   // vercel.json's rewrites.
-  if (path === '/' || /^\/[pr]\/[^/]+$/.test(path)) {
+  if (path === '/') {
     if (await serveStatic(res, 'index.html')) return;
+  }
+  if (path === '/app' || /^\/[pr]\/[^/]+$/.test(path)) {
+    if (await serveStatic(res, 'app.html')) return;
   }
   if (await serveStatic(res, path.replace(/^\//, ''))) return;
 

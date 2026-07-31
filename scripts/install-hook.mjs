@@ -27,7 +27,7 @@ const SETTINGS = join(homedir(), '.claude', 'settings.json');
 // hook can legitimately take — the grace period it holds the push for, plus the
 // wait for the phone — or we get killed mid-wait and the decision is lost.
 let waitSec = 300;
-let graceSec = 10;
+let graceSec = 0;
 try {
   const { load } = await import('../lib/config.mjs');
   ({ timeoutSec: waitSec, graceSec } = load());
@@ -88,9 +88,18 @@ const MANAGED = {
   SessionEnd: [{ hooks: [{ type: 'command', command: RECONCILE_CMD, timeout: 20 }] }],
 };
 
-/** Ours, by the only thing that identifies it: the script it runs. */
-const isOurs = (group) => (group.hooks ?? []).some((h) =>
-  h.command?.includes('permission-hook.mjs') || h.command?.includes('reconcile-hook.mjs'));
+/**
+ * Ours, by the only thing that identifies it: the script it runs.
+ *
+ * Deliberately per *entry*, not per group. We always write a group of our own, so
+ * in practice ours sit alone — but nothing stops a user (or another installer)
+ * from putting our command in the same group as theirs, and treating that group
+ * as ours would delete their hook along with ours on uninstall.
+ */
+const isOurHook = (h) =>
+  h?.command?.includes('permission-hook.mjs') || h?.command?.includes('reconcile-hook.mjs');
+
+const ourCount = (group) => (Array.isArray(group?.hooks) ? group.hooks : []).filter(isOurHook).length;
 
 // A user who has never edited settings.json has no file — and on a truly fresh
 // machine, no ~/.claude either. That is the common case for a first install, not
@@ -128,13 +137,23 @@ if (s === null || typeof s !== 'object' || Array.isArray(s)) {
  * now that we write four event keys instead of one it has to be finer-grained than
  * "these keys are untouched": PostToolUse and Stop are popular, and a user who
  * already has hooks there must get them back byte-for-byte. So the snapshot is of
- * the individual groups we do not own, across every event.
+ * the individual hook entries we do not own, keyed by event and matcher so that
+ * losing the group they live in — or just its matcher — still trips the check.
+ *
+ * Entry-level, matching `isOurHook`: a group holding both their command and ours
+ * contributes their entry here, so the write aborts if the group is dropped whole.
  */
 const foreignHooks = (settings) =>
   Object.entries(settings.hooks ?? {})
     .flatMap(([event, groups]) => (Array.isArray(groups) ? groups : [])
-      .filter((g) => !isOurs(g))
-      .map((g) => `${event}:${JSON.stringify(g)}`))
+      .flatMap((g) => {
+        const hooks = Array.isArray(g?.hooks) ? g.hooks : [];
+        // A group with no hooks array is still theirs, and still must survive.
+        if (!hooks.length) return [`${event}|${g?.matcher ?? ''}|${JSON.stringify(g)}`];
+        return hooks
+          .filter((h) => !isOurHook(h))
+          .map((h) => `${event}|${g?.matcher ?? ''}|${JSON.stringify(h)}`);
+      }))
     .sort();
 
 // Snapshot everything we must not lose.
@@ -154,9 +173,19 @@ s.hooks ??= {};
 let existing = 0;
 for (const event of Object.keys(s.hooks)) {
   if (!Array.isArray(s.hooks[event])) continue;
-  const ours = s.hooks[event].filter(isOurs).length;
-  existing += ours;
-  s.hooks[event] = s.hooks[event].filter((g) => !isOurs(g));
+  const kept = [];
+  for (const group of s.hooks[event]) {
+    const ours = ourCount(group);
+    // Nothing of ours in it — pass it through untouched, so it is preserved
+    // byte-for-byte rather than rebuilt.
+    if (!ours) { kept.push(group); continue; }
+    existing += ours;
+    const rest = group.hooks.filter((h) => !isOurHook(h));
+    // Ours alone: the group is ours, drop it. Shared with someone else's command:
+    // keep the group and its matcher, minus our entries.
+    if (rest.length) kept.push({ ...group, hooks: rest });
+  }
+  s.hooks[event] = kept;
 }
 
 if (!remove) {

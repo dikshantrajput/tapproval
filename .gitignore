@@ -1,0 +1,8 @@
+node_modules/
+*.tgz
+.DS_Store
+.vercel
+.env*
+
+# Machine-local Supabase CLI link state, not shared config.
+supabase/.temp/

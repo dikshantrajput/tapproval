@@ -1,0 +1,39 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "public": false,
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "public",
+
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://awfdrhvlvasdllxavqmm.supabase.co/functions/v1/:path*"
+    },
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/p/:code", "destination": "/index.html" },
+    { "source": "/r/:id", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/OneSignalSDKWorker.js",
+      "headers": [
+        { "key": "cache-control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "service-worker-allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/aap-crypto.js",
+      "headers": [
+        { "key": "cache-control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "x-content-type-options", "value": "nosniff" },
+        { "key": "referrer-policy", "value": "no-referrer" }
+      ]
+    }
+  ]
+}

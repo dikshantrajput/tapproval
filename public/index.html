@@ -1,0 +1,1284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>tapproval</title>
+<meta name="description" content="Approve or deny requests from your machine, from your phone.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="tapproval">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --bg: #f4f5f8;
+    --surface: #ffffff;
+    --inset: #f0f2f6;
+    --line: #d8dbe3;
+    --line-strong: #b9bec9;
+    --fg: #14161c;
+    --fg-dim: #565c6b;
+    --accent: #2f49c9;
+    --accent-fg: #ffffff;
+    --ok: #0d6b3d;
+    --ok-soft: #e6f5ec;
+    --danger: #b02121;
+    --danger-soft: #fdeaea;
+    --warn: #8a5000;
+    --warn-soft: #fdf1de;
+    --shadow: 0 1px 2px rgba(16, 20, 30, .06), 0 8px 24px -12px rgba(16, 20, 30, .18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318;
+      --surface: #191c23;
+      --inset: #0c0e13;
+      --line: #282d38;
+      --line-strong: #3a414f;
+      --fg: #eceef3;
+      --fg-dim: #9aa2b2;
+      --accent: #93a6ff;
+      --accent-fg: #0d1020;
+      --ok: #4ade9a;
+      --ok-soft: #10291d;
+      --danger: #ff8b8b;
+      --danger-soft: #2b1517;
+      --warn: #f5c26b;
+      --warn-soft: #2a2013;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    min-height: 100dvh;
+    padding:
+      max(18px, env(safe-area-inset-top))
+      max(18px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
+    gap: 14px;
+  }
+  @media (min-width: 620px) {
+    #app { max-width: 560px; margin: 0 auto; }
+  }
+
+  h1 { font: 600 19px/1.3 inherit; margin: 0; letter-spacing: -.01em; }
+  h2 { font: 600 14px/1.35 inherit; margin: 0; }
+  p { margin: 0; }
+  .dim { color: var(--fg-dim); font-size: 14px; }
+
+  /* ---- shared shells ---------------------------------------------------- */
+
+  .head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; min-height: 28px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 8px;
+    font: 600 14px/1 inherit; color: var(--fg-dim);
+    letter-spacing: .02em;
+  }
+  .brand svg { width: 18px; height: 18px; flex: none; }
+  .grow { flex: 1 1 auto; min-height: 0; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .foot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---- review: the payload dominates ------------------------------------ */
+
+  .req {
+    display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 0;
+    overflow: hidden;
+  }
+  .req-top {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tool {
+    font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .04em; text-transform: uppercase;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 5px 9px; border-radius: 7px;
+  }
+  .asks { color: var(--fg-dim); font-size: 13px; }
+
+  pre {
+    margin: 0; padding: 14px;
+    flex: 1 1 auto; min-height: 96px;
+    overflow: auto; -webkit-overflow-scrolling: touch;
+    background: var(--inset);
+    color: var(--fg);
+    font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap; word-break: break-word;
+    tab-size: 2;
+  }
+  .cwd {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    color: var(--fg-dim);
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-all;
+  }
+  .cwd svg { width: 13px; height: 13px; flex: none; opacity: .8; }
+
+  /* ---- countdown -------------------------------------------------------- */
+
+  .clock {
+    display: flex; align-items: center; gap: 8px;
+    font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--fg-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .clock .track {
+    width: 56px; height: 4px; border-radius: 999px;
+    background: var(--line); overflow: hidden;
+  }
+  .clock .bar {
+    display: block; height: 100%; width: 100%;
+    background: currentColor; border-radius: 999px;
+    transform-origin: left center;
+  }
+  .clock.warn { color: var(--warn); }
+  .clock.crit { color: var(--danger); }
+
+  /* ---- controls --------------------------------------------------------- */
+
+  input[type="text"] {
+    width: 100%; padding: 13px 14px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); color: var(--fg);
+    font: 14px/1.4 inherit;
+  }
+  input::placeholder { color: var(--fg-dim); }
+
+  .row { display: flex; gap: 10px; }
+
+  button {
+    position: relative; overflow: hidden;
+    min-height: 54px; padding: 15px 18px;
+    border-radius: 14px; border: 1px solid transparent;
+    font: 600 16px/1.2 inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+    transition: background-color .15s, border-color .15s, opacity .15s;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Deny: light, cheap to hit, sits under the thumb. */
+  #deny {
+    flex: 0 0 38%;
+    background: var(--surface);
+    border-color: var(--line-strong);
+    color: var(--danger);
+  }
+  #deny:active:not(:disabled) { background: var(--danger-soft); }
+
+  /* Approve: the solid one. */
+  #allow {
+    flex: 1 1 auto;
+    background: var(--ok);
+    border-color: var(--ok);
+    color: var(--accent-fg);
+  }
+  #allow:active:not(:disabled) { opacity: .85; }
+  #allow .lbl { display: inline-flex; align-items: center; gap: 8px; }
+  #allow .lbl svg { width: 17px; height: 17px; }
+
+  #enable {
+    width: 100%;
+    background: var(--accent); color: var(--accent-fg);
+    border-color: transparent;
+  }
+  #enable:disabled { background: var(--surface); border-color: var(--line); color: var(--ok); opacity: 1; }
+
+  /* ---- questions: options replace the verdict ---------------------------- */
+
+  .qs {
+    display: flex; flex-direction: column; gap: 16px;
+    flex: 1 1 auto; min-height: 0;
+    overflow: auto; -webkit-overflow-scrolling: touch;
+    padding: 14px;
+  }
+  .q { display: flex; flex-direction: column; gap: 9px; }
+  .q .ask { font: 600 15.5px/1.4 inherit; }
+  .q .hdr {
+    align-self: flex-start;
+    font: 600 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .05em; text-transform: uppercase;
+    color: var(--fg-dim); background: var(--inset);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px;
+  }
+  .q .many { color: var(--fg-dim); font-size: 12.5px; }
+  .opts { display: flex; flex-direction: column; gap: 8px; }
+
+  /* An option is a button, not a radio: on a phone the whole card is the
+     target, and the tick is the only state it has. */
+  .opt {
+    display: flex; align-items: flex-start; gap: 10px;
+    width: 100%; min-height: 0; padding: 12px 13px;
+    text-align: left; font: inherit; color: inherit;
+    background: var(--inset);
+    border: 1px solid var(--line); border-radius: 12px;
+  }
+  .opt:active { border-color: var(--line-strong); }
+  .opt .tick {
+    flex: none; width: 20px; height: 20px; border-radius: 999px;
+    border: 1.5px solid var(--line-strong); display: grid; place-items: center;
+    margin-top: 1px;
+  }
+  .opt .tick svg { width: 12px; height: 12px; opacity: 0; }
+  .opt .lab { font: 600 14.5px/1.35 inherit; }
+  .opt .desc { color: var(--fg-dim); font-size: 12.5px; line-height: 1.4; margin-top: 2px; }
+  .opt[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  .opt[aria-pressed="true"] .tick {
+    background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
+  }
+  .opt[aria-pressed="true"] .tick svg { opacity: 1; }
+
+  /* Same weights as Approve/Deny: the send is solid, the walk-away is quiet. */
+  #send {
+    flex: 1 1 auto;
+    background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
+  }
+  #send:active:not(:disabled) { opacity: .85; }
+  #dismiss {
+    flex: 0 0 38%;
+    background: var(--surface); border-color: var(--line-strong); color: var(--fg-dim);
+  }
+  #dismiss:active:not(:disabled) { background: var(--inset); }
+
+  /* ---- callout / status ------------------------------------------------- */
+
+  .note {
+    display: flex; gap: 10px;
+    padding: 13px 14px;
+    border-radius: 14px;
+    background: var(--warn-soft);
+    border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+    color: var(--fg);
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .note svg { width: 17px; height: 17px; flex: none; color: var(--warn); margin-top: 1px; }
+  .note b { font-weight: 600; }
+  .note kbd {
+    font: inherit; font-weight: 600;
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+    border-radius: 5px; padding: 0 4px;
+  }
+
+  #state {
+    display: flex; align-items: center; gap: 8px;
+    font: 500 14px/1.4 inherit; color: var(--fg-dim);
+    min-height: 20px;
+  }
+  #state .dot {
+    width: 8px; height: 8px; border-radius: 999px; flex: none;
+    background: var(--line-strong);
+  }
+  #state.on { color: var(--ok); }
+  #state.on .dot { background: var(--ok); }
+
+  /* ---- outcome ---------------------------------------------------------- */
+
+  .outcome {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; text-align: center; padding: 24px 8px;
+  }
+  .outcome .mark {
+    width: 60px; height: 60px; border-radius: 999px;
+    display: grid; place-items: center;
+    background: var(--inset); color: var(--fg-dim);
+    border: 1px solid var(--line);
+  }
+  .outcome .mark svg { width: 30px; height: 30px; }
+  .outcome h1 { font-size: 22px; }
+  .outcome p { max-width: 30ch; color: var(--fg-dim); font-size: 14.5px; }
+  .outcome.ok .mark { background: var(--ok-soft); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+  .outcome.no .mark { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+  .outcome.warn .mark { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+  /* ---- loader ----------------------------------------------------------- */
+
+  .loading {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; color: var(--fg-dim); font-size: 14px;
+  }
+  .spinner {
+    width: 28px; height: 28px; border-radius: 999px;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 2s; }
+  }
+
+  /* ---- history ---------------------------------------------------------- */
+
+  .hist { display: flex; flex-direction: column; gap: 8px; }
+  .hist h2 { color: var(--fg-dim); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+  .entry {
+    border-radius: 12px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line);
+  }
+  .item {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 11px 13px;
+    background: none; border: 0; border-radius: 0;
+    min-height: 0; text-align: left; color: inherit;
+    font: inherit;
+  }
+  .item:active { background: var(--inset); }
+  .entry.open .item { border-bottom: 1px solid var(--line); }
+  .entry .detail {
+    padding: 11px 13px;
+    background: var(--inset);
+    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .entry .meta {
+    padding: 0 13px 11px; background: var(--inset);
+    color: var(--fg-dim); font-size: 11.5px; word-break: break-all;
+  }
+  .item .who {
+    font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--fg-dim); flex: none;
+  }
+  .item .what {
+    flex: 1 1 auto; min-width: 0; font-size: 13.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .item .when { flex: none; font-size: 11.5px; color: var(--fg-dim); }
+  .pill {
+    flex: none; font: 600 9.5px/1 inherit; letter-spacing: .04em;
+    padding: 4px 6px; border-radius: 999px; text-transform: capitalize;
+    background: var(--inset); color: var(--fg-dim); font-size: 10px;
+  }
+  .pill.allow,
+  .pill.local_allow { background: var(--ok-soft); color: var(--ok); }
+  .pill.answer,
+  .pill.local_answer { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .pill.deny,
+  .pill.local_deny { background: var(--danger-soft); color: var(--danger); }
+  .pill.expired,
+  .pill.cancelled { background: var(--warn-soft); color: var(--warn); }
+  /* Same colour as its phone-side twin — the verdict is the verdict — but hollow,
+     so a glance down the list separates "I decided this here" from "this was
+     decided at the keyboard" without having to read every label. */
+  .pill.local_allow,
+  .pill.local_answer,
+  .pill.local_deny {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px currentColor;
+    text-transform: none;
+  }
+
+  .outcome .terminal {
+    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--fg-dim);
+    background: var(--inset); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script src="/aap-crypto.js"></script>
+<script>
+const app = document.getElementById('app');
+// Bumped on every repaint. Background loops capture it and stop as soon as the
+// screen they were started for is gone.
+let view = 0;
+const el = (h) => { view++; app.innerHTML = h; };
+const reqId = location.pathname.startsWith('/r/') ? location.pathname.slice(3) : null;
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- credentials ----------------
+
+   Hosted mode: this phone holds its own `phoneToken` (revocable on its own) and
+   the device's `payloadKey`. Both arrive once, from /api/claim, in exchange for a
+   6-character code that then dies. The key also goes into IndexedDB, because the
+   service worker needs it to render a notification body and cannot read
+   localStorage.
+
+   Self-hosted mode: the single `deviceId` is the bearer token, exactly as before.
+   It arrives in the pairing URL and stays in localStorage. */
+
+const store = {
+  get: (k) => localStorage.getItem(k) || '',
+  set: (k, v) => localStorage.setItem(k, v),
+};
+
+const PAIR_PREFIX = '/p/';
+const pairArg = location.pathname.startsWith(PAIR_PREFIX)
+  ? decodeURIComponent(location.pathname.slice(PAIR_PREFIX.length)).trim()
+  : '';
+
+// A 6-char code is a hosted pair code; a long hex string is a self-hosted device
+// secret. They cannot be confused for each other.
+const isPairCodeStr = (s) => /^[A-Za-z2-9]{6}$/.test(s);
+const isPairCode = isPairCodeStr(pairArg);
+const isLegacySecret = /^[a-f0-9]{16,}$/i.test(pairArg);
+
+if (isLegacySecret) {
+  store.set('deviceId', pairArg);
+  store.set('mode', 'self-hosted');
+  history.replaceState(null, '', '/');
+}
+
+const mode = () => store.get('mode') || (store.get('phoneToken') ? 'hosted' : 'self-hosted');
+const authToken = () => (mode() === 'hosted' ? store.get('phoneToken') : store.get('deviceId'));
+const isPaired = () => !!authToken();
+
+/** All authenticated calls go through here. */
+const api = (path, init = {}) => fetch(path, {
+  ...init,
+  headers: { ...(init.headers ?? {}), authorization: `Bearer ${authToken()}` },
+});
+
+let config = null;
+const getConfig = async () => (config ??= mode() === 'hosted'
+  ? { appId: store.get('onesignalAppId'), deviceId: store.get('deviceId') }
+  : await (await api('/api/config')).json());
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------------- inline icons (no network, no font) ---------------- */
+
+const I = {
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.6v5.9c0 4.4-2.8 7.5-7 9.5-4.2-2-7-5.1-7-9.5V5.6L12 3z"/><path d="M9 12l2.2 2.2L15 9.8"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3.2 2"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 014.5 6h4l2 2.5h7A1.5 1.5 0 0119 10v7a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 013 17V7.5z"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg>',
+};
+
+const brand = `<div class="brand"><span>tapproval</span></div>`;
+
+/** Hosted returns snake_case timestamps; self-hosted returns camelCase. One shape. */
+const normalise = (r) => ({
+  ...r,
+  createdAt: r.createdAt ?? (r.created_at ? Date.parse(r.created_at) : undefined),
+  expiresAt: r.expiresAt ?? (r.expires_at ? Date.parse(r.expires_at) : undefined),
+});
+
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = window.navigator.standalone === true
+  || window.matchMedia('(display-mode: standalone)').matches;
+
+/** Full-screen "we are fetching something" state. Every path that waits on the
+    network shows this first, so a tapped notification never lands on blank. */
+const loading = (msg = 'Loading...') => el(`
+  <div class="head">${brand}</div>
+  <div class="loading" role="status" aria-live="polite">
+    <span class="spinner"></span><span>${esc(msg)}</span>
+  </div>
+`);
+
+const ago = (t) => {
+  if (!t) return '';
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
+
+/** Rows the user has expanded — kept across the 5s refresh so a poll does not
+    snap a row shut while it is being read. */
+const openRows = new Set();
+
+/**
+ * What each status is called in the history.
+ *
+ * The `local_*` three are decisions made at the keyboard: the prompt fell through
+ * to the terminal because this phone did not answer in time, and the machine
+ * reported back what happened there. "· terminal" rather than a different word for
+ * the verdict, because the verdict is the same one — only the place changed.
+ *
+ * `cancelled` keeps its narrower meaning: we stopped waiting and never found out.
+ */
+const LABEL = {
+  allow: 'Approved',
+  answer: 'Answered',
+  deny: 'Denied',
+  pending: 'Pending',
+  cancelled: 'Withdrawn',
+  expired: 'Timed out',
+  local_allow: 'Approved · terminal',
+  local_deny: 'Denied · terminal',
+  local_answer: 'Answered · terminal',
+};
+
+/** Was this settled by a real decision, wherever it was taken? */
+const isDecided = (status) =>
+  ['allow', 'deny', 'answer', 'local_allow', 'local_deny', 'local_answer'].includes(status);
+
+/** Recent requests, decrypted where they are ciphertext. Read-only cards. */
+async function renderHistory(into) {
+  let rows;
+  try {
+    const path = mode() === 'hosted' ? '/api/request?history=1' : '/api/history';
+    ({ requests: rows } = await (await api(path)).json());
+  } catch { return; }
+  if (!rows?.length) return;
+
+  const key = store.get('payloadKey') || (await self.AAP.idbGet('payloadKey').catch(() => ''));
+  const cards = [];
+  for (const raw of rows) {
+    const r = normalise(raw);
+    if (r.payload_ciphertext && key) {
+      try { Object.assign(r, await self.AAP.decryptPayload(key, r.payload_ciphertext)); } catch {}
+    }
+    // `local_*` is the same decision taken at the keyboard instead of here. The
+    // history says so rather than hiding it: "who decided this, and where" is the
+    // question this list exists to answer, and it used to have no answer at all
+    // for the prompts you handled in the terminal — which is most of them.
+    const label = LABEL[r.status] ?? 'Timed out';
+    const full = r.detail || r.summary || '';
+    const meta = [
+      r.cwd ? `in ${r.cwd}` : '',
+      r.note ? `note: ${r.note}` : '',
+      r.createdAt ? new Date(r.createdAt).toLocaleString() : '',
+    ].filter(Boolean).join(' · ');
+
+    const open = openRows.has(r.id);
+    const hid = open ? '' : 'hidden';
+
+    cards.push(`
+      <div class="entry ${open ? 'open' : ''}" data-id="${esc(r.id)}">
+        <button type="button" class="item" aria-expanded="${open}">
+          <span class="who">${esc(r.tool ?? '—')}</span>
+          <span class="what">${esc(r.summary || full)}</span>
+          <span class="when">${ago(r.createdAt)}</span>
+          <span class="pill ${esc(r.status)}">${label}</span>
+        </button>
+        <div class="detail" ${hid}>${esc(full)}</div>
+        ${meta ? `<p class="meta" ${hid}>${esc(meta)}</p>` : ''}
+      </div>`);
+  }
+
+  into.innerHTML = `<div class="hist"><h2>Recent</h2>${cards.join('')}</div>`;
+
+  // Tap a row to see the whole command — the one-line summary is truncated.
+  for (const btn of into.querySelectorAll('.item')) {
+    btn.onclick = () => {
+      const entry = btn.parentElement;
+      const open = entry.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+      openRows[open ? 'add' : 'delete'](entry.dataset.id);
+      for (const p of entry.querySelectorAll('.detail, .meta')) p.hidden = !open;
+    };
+  }
+}
+
+/**
+ * While the home screen is open, watch for a request arriving.
+ *
+ * A notification is the primary path, but the phone may already be looking at
+ * this page — where nothing would ever change on its own. Polls the same
+ * "anything pending?" route the boot path uses, and jumps straight into the
+ * review screen when one appears. Stops when the view changes underneath it,
+ * and idles while the page is backgrounded.
+ *
+ * Capped at five minutes: a phone left on this screen all day should not keep
+ * hitting the API forever — after that the notification is the only path back,
+ * which is what it is for.
+ */
+const WATCH_EVERY = 5000;
+const WATCH_FOR = 5 * 60 * 1000;
+
+function watchForRequests(histEl) {
+  const mine = view;
+  const until = Date.now() + WATCH_FOR;
+  const pendingPath = mode() === 'hosted' ? '/api/request?pending=1' : '/api/pending';
+
+  const tick = async () => {
+    if (view !== mine) return;                    // screen moved on — stop
+    if (Date.now() > until) return;               // gave up watching
+    if (document.hidden) return schedule();
+    try {
+      const { id } = await (await api(pendingPath)).json();
+      if (view !== mine) return;
+      if (id) return reviewScreen(id);
+      await renderHistory(histEl);
+    } catch {}
+    schedule();
+  };
+  const schedule = () => setTimeout(tick, WATCH_EVERY);
+
+  schedule();
+}
+
+/* ---------------- pairing screen ---------------- */
+
+async function pairScreen() {
+  loading();
+  const { appId, deviceId } = await getConfig();
+
+  const iosNote = isIOS && !isStandalone ? `
+    <div class="note" role="note">
+      ${I.info}
+      <div>
+        <b>iPhone &amp; iPad:</b> add this page to your Home Screen
+        (<kbd>Share</kbd> → <kbd>Add to Home Screen</kbd>) and open it from the
+        icon. Safari cannot grant notification permission in a normal tab.
+      </div>
+    </div>` : '';
+
+  el(`
+    <div class="head">${brand}</div>
+    <div class="stack grow">
+      <div>
+        <h1>Pair this phone</h1>
+        <p class="dim" style="margin-top:6px">
+          Your machine will ask here before it does anything that needs
+          permission. You approve or deny — nothing else is sent.
+        </p>
+      </div>
+      ${iosNote}
+      <div class="stack" style="gap:10px">
+        <p id="state" aria-live="polite"><span class="dot"></span><span>Checking...</span></p>
+        <button id="enable">Enable notifications</button>
+      </div>
+      <div id="hist"></div>
+    </div>
+  `);
+
+  const state = $('state');
+  const label = state.lastElementChild;
+  const btn = $('enable');
+
+  if (isPaired()) {
+    const hist = $('hist');
+    renderHistory(hist);
+    watchForRequests(hist);
+  }
+
+  // iOS only registers a push token for an installed app. In a Safari tab the
+  // permission prompt can still be granted while nothing subscribes, which is
+  // the exact state that looks fine here and delivers nothing.
+  if (isIOS && !isStandalone) {
+    label.textContent = 'Open this from the Home Screen icon — Safari cannot subscribe.';
+    btn.disabled = true;
+    return;
+  }
+
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async (OneSignal) => {
+    await OneSignal.init({
+      appId,
+      serviceWorkerPath: 'OneSignalSDKWorker.js',
+      serviceWorkerParam: { scope: '/' },
+      allowLocalhostAsSecureOrigin: true,
+    });
+
+    // Bind this browser to the machine's device id so the server can target
+    // it with include_aliases.external_id — no subscription table needed.
+    await OneSignal.login(deviceId);
+
+    const sub = () => OneSignal.User.PushSubscription;
+
+    /**
+     * Permission is not subscription.
+     *
+     * `Notifications.permission` is just `Notification.permission === 'granted'`.
+     * On iOS that can be true with no push token ever registered, and then every
+     * send comes back `invalid_aliases` with nothing delivered. Only a token (or
+     * subscription id) means a notification can actually arrive, so that is what
+     * this reports — a green tick here has to mean the pipeline works.
+     */
+    const sync = () => {
+      const granted = OneSignal.Notifications.permission;
+      const s = sub();
+      const live = Boolean(granted && s.optedIn && (s.id || s.token));
+
+      label.textContent = live
+        ? '✅ Subscribed — you can close this page.'
+        : granted
+          ? '⚠️ Permission granted but no push token — nothing will arrive. Try again.'
+          : 'Not subscribed yet.';
+      state.classList.toggle('on', live);
+      btn.disabled = live;
+      btn.textContent = live ? 'Subscribed' : 'Enable notifications';
+    };
+    sync();
+    OneSignal.Notifications.addEventListener('permissionChange', sync);
+    sub().addEventListener('change', sync);
+
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await OneSignal.Notifications.requestPermission();
+        // Granting permission does not by itself create a subscription — ask.
+        if (!sub().optedIn) await sub().optIn();
+      } catch {} finally {
+        sync();
+      }
+    };
+  });
+}
+
+/* ---------------- review screen ---------------- */
+
+/**
+ * Take down any notification still on screen for a settled request.
+ *
+ * The push has a TTL but the notification does not expire with it, so a request
+ * answered elsewhere leaves a live-looking "Approve Bash?" on the lock screen
+ * that nothing else clears. Matches the id in the tag or the data payload —
+ * OneSignal does not use the same tag on every platform (see the worker).
+ *
+ * Best-effort throughout: there is no correctness riding on it.
+ */
+async function clearNotifications(id) {
+  try {
+    const reg = await navigator.serviceWorker?.ready;
+    if (!reg) return;
+    for (const n of await reg.getNotifications()) {
+      if (n.tag === id || n.data?.request_id === id) n.close();
+    }
+  } catch {}
+}
+
+/* ---------------- questions ----------------
+
+   The AskUserQuestion side of the same screen. Everything below is display and
+   selection only: the hook re-checks every label against the options it sent, so a
+   selection is a suggestion until the machine recognises it. */
+
+/** Null unless this really is a question with options to choose from. */
+function normaliseQuestionList(raw) {
+  if (!Array.isArray(raw)) return null;
+  const qs = raw
+    .map((q) => ({
+      question: String(q?.question ?? ''),
+      header: String(q?.header ?? ''),
+      multiSelect: q?.multiSelect === true,
+      options: (Array.isArray(q?.options) ? q.options : [])
+        .map((o) => ({ label: String(o?.label ?? ''), description: String(o?.description ?? '') }))
+        .filter((o) => o.label),
+    }))
+    .filter((q) => q.question && q.options.length);
+  return qs.length ? qs : null;
+}
+
+function questionsHtml(questions) {
+  return `<div class="qs">${questions.map((q, qi) => `
+    <div class="q" role="group" aria-label="${esc(q.question)}">
+      ${q.header ? `<span class="hdr">${esc(q.header)}</span>` : ''}
+      <p class="ask">${esc(q.question)}</p>
+      ${q.multiSelect ? '<p class="many">Choose one or more</p>' : ''}
+      <div class="opts">
+        ${q.options.map((o, oi) => `
+          <button type="button" class="opt" aria-pressed="false"
+                  data-q="${qi}" data-o="${oi}">
+            <span class="tick">${I.check}</span>
+            <span>
+              <span class="lab">${esc(o.label)}</span>
+              ${o.description ? `<span class="desc">${esc(o.description)}</span>` : ''}
+            </span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+/**
+ * Selection behaviour, and the one shortcut worth having: a single
+ * single-choice question sends on the tap.
+ *
+ * That is the common case by far, and it makes answering one question exactly as
+ * cheap as approving one command — one tap, from the notification. Anything with
+ * more than one question, or with multi-select anywhere, needs a confirm step
+ * instead, because a tap there means "also this" rather than "that one, done".
+ */
+function wireQuestions(questions, send) {
+  const chosen = questions.map(() => new Set());
+  const oneTap = questions.length === 1 && !questions[0].multiSelect;
+  const sendBtn = $('send');
+
+  const payload = () => {
+    const out = {};
+    chosen.forEach((set, i) => { if (set.size) out[String(i)] = [...set]; });
+    return out;
+  };
+
+  for (const btn of document.querySelectorAll('.opt')) {
+    btn.onclick = () => {
+      const qi = Number(btn.dataset.q);
+      const label = questions[qi].options[Number(btn.dataset.o)].label;
+      const set = chosen[qi];
+
+      if (questions[qi].multiSelect) {
+        set.has(label) ? set.delete(label) : set.add(label);
+      } else {
+        set.clear();
+        set.add(label);
+      }
+
+      // Repaint this question's group from the set, so the DOM never disagrees
+      // with what would actually be sent.
+      for (const other of document.querySelectorAll(`.opt[data-q="${qi}"]`)) {
+        const l = questions[qi].options[Number(other.dataset.o)].label;
+        other.setAttribute('aria-pressed', String(set.has(l)));
+      }
+
+      if (oneTap) return send('answer', payload());
+      // Every question needs an answer — the tool expects one per question.
+      sendBtn.disabled = chosen.some((s) => !s.size);
+    };
+  }
+
+  if (!oneTap) sendBtn.onclick = () => send('answer', payload());
+  // Walking away is an answer too, and it is the honest one: deny tells Claude
+  // nothing was chosen rather than picking for the user.
+  $('dismiss').onclick = () => send('deny');
+}
+
+async function reviewScreen(id, autoVerdict) {
+  loading('Fetching request...');
+  let r;
+  try {
+    const res = await api(`/api/request?id=${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error('not found');
+    r = normalise(await res.json());
+  } catch {
+    return done('missing');
+  }
+
+  // Never render Approve/Deny for a request that is already settled. A tap on a
+  // notification can arrive long after the answer did — from the terminal, from
+  // another phone, or from the notification's own action button — and the whole
+  // point of re-reading status here is that the buttons never lie about being live.
+  if (r.status !== 'pending') {
+    // A settled status carries a verdict worth echoing back — including one taken
+    // in the terminal, which is the case this notification most often loses to.
+    // `expired` and `cancelled` each get their own card instead.
+    clearNotifications(id);
+    return done(r.status, isDecided(r.status) ? { already: true } : {});
+  }
+
+  // Hosted: the server handed us a blob it cannot read. Decrypt it here.
+  // Kept in scope because the answer travels back under the same key.
+  let payloadKey = '';
+  if (r.payload_ciphertext) {
+    try {
+      payloadKey = store.get('payloadKey') || (await self.AAP.idbGet('payloadKey'));
+      if (!payloadKey) throw new Error('no key');
+      Object.assign(r, await self.AAP.decryptPayload(payloadKey, r.payload_ciphertext));
+    } catch {
+      // Never show a request we cannot read and then offer an Approve button —
+      // you would be approving something invisible.
+      return done('unreadable');
+    }
+  }
+
+  // AskUserQuestion is not a permission request: Claude is offering options and
+  // wants to know which. Approve/Deny cannot say "the second one", so for these
+  // the options *are* the buttons, and no verdict is offered at all.
+  const questions = normaliseQuestionList(r.questions);
+
+  el(`
+    <div class="head">
+      ${brand}
+      <span class="clock" id="clock" aria-live="off" hidden>
+        ${I.clock}<span id="left">–</span><span class="track"><span class="bar" id="bar"></span></span>
+      </span>
+    </div>
+
+    <div class="card req">
+      <div class="req-top">
+        <span class="tool">${esc(questions ? (questions[0].header || 'Question') : r.tool)}</span>
+        <span class="asks">${questions ? 'is asking you to choose' : 'wants permission to run'}</span>
+      </div>
+      ${questions
+        ? questionsHtml(questions)
+        : `<pre tabindex="0" aria-label="Requested action">${esc(r.detail || r.summary)}</pre>`}
+      ${r.cwd ? `<p class="cwd">${I.folder}<span>${esc(r.cwd)}</span></p>` : ''}
+    </div>
+
+    <div class="foot">
+      <input type="text" id="note" autocomplete="off" autocapitalize="sentences"
+             enterkeyhint="done" placeholder="Optional note (sent with your answer)">
+      <div class="row">
+        ${questions
+          ? `<button id="dismiss">Dismiss</button>
+             <button id="send" disabled>Send answer</button>`
+          : `<button id="deny">Deny</button>
+             <button id="allow"><span class="lbl">${I.check}Approve</span></button>`}
+      </div>
+    </div>
+  `);
+
+  let settled = false;
+
+  /* --- countdown ------------------------------------------------------- */
+  let tick = null;
+  if (r.expiresAt) {
+    const clock = $('clock');
+    const left = $('left');
+    const bar = $('bar');
+    const total = Math.max(1, r.expiresAt - (r.createdAt ?? Date.now()));
+    clock.hidden = false;
+    const paint = () => {
+      const ms = r.expiresAt - Date.now();
+      if (ms <= 0) {
+        clearInterval(tick);
+        if (!settled) { settled = true; done('expired'); }
+        return;
+      }
+      const secs = Math.ceil(ms / 1000);
+      left.textContent = secs >= 60
+        ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
+        : `${secs}s`;
+      bar.style.transform = `scaleX(${Math.min(1, ms / total)})`;
+      clock.classList.toggle('warn', ms <= 30000 && ms > 10000);
+      clock.classList.toggle('crit', ms <= 10000);
+    };
+    paint();
+    tick = setInterval(paint, 250);
+  }
+
+  /* --- decide ---------------------------------------------------------- */
+  /**
+   * `picked` is index-keyed, matching the wire format the hook validates against
+   * the options it sent — the question text never has to travel back.
+   */
+  const send = async (verdict, picked) => {
+    if (settled) return;
+    settled = true;
+    clearInterval(tick);
+    for (const b of document.querySelectorAll('button')) b.disabled = true;
+    const note = $('note').value.trim() || undefined;
+
+    const body = { id, verdict, note };
+    if (verdict === 'answer') {
+      // Hosted mode: which option was chosen is content too, so it goes back under
+      // the same key the request arrived in. Self-hosted stays on the machine and
+      // needs no envelope.
+      if (payloadKey) {
+        try {
+          body.answer_ciphertext = await self.AAP.encryptPayload(payloadKey, { answers: picked });
+        } catch {
+          return done('offline');
+        }
+      } else {
+        body.answers = picked;
+      }
+    }
+
+    let out = {};
+    try {
+      const res = await api('/api/decide', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      out = await res.json().catch(() => ({}));
+    } catch {
+      return done('offline');
+    }
+    clearNotifications(id);
+    // Trust the server, not the tap: it may have expired while we sat here.
+    if (out.applied) return done(verdict);
+    done(out.status ?? 'expired', {
+      already: out.status === 'allow' || out.status === 'deny' || out.status === 'answer',
+    });
+  };
+
+  if (questions) {
+    wireQuestions(questions, send);
+  } else {
+    $('deny').onclick = () => send('deny');
+    $('allow').onclick = () => send('allow');
+  }
+
+  // Desktop Chrome does open an action button's URL (`/r/<id>?a=allow`), so honour
+  // it. On Android the service worker has already answered by fetch and this page
+  // never opens — see OneSignalSDKWorker.js.
+  //
+  // Never for a question: a verdict cannot answer one, and auto-firing it would
+  // settle the row with nothing chosen. Those land on the option list instead.
+  if (autoVerdict && !questions) send(autoVerdict);
+}
+
+/* ---------------- outcome screen ---------------- */
+
+const OUTCOME = {
+  allow: {
+    tone: 'ok', icon: I.check, title: 'Approved',
+    sub: 'Your machine has been told to go ahead. You can close this page.',
+  },
+  deny: {
+    tone: 'no', icon: I.x, title: 'Denied',
+    sub: 'Your machine has been told to stop. You can close this page.',
+  },
+  answer: {
+    tone: 'ok', icon: I.check, title: 'Answer sent',
+    sub: 'Claude has your choice and is carrying on. You can close this page.',
+  },
+  expired: {
+    tone: 'warn', icon: I.clock, title: 'Timed out',
+    sub: 'This request expired before your answer reached your machine — it was <b>not</b> delivered.',
+    hint: 'Answer the prompt in your terminal instead.',
+  },
+  // The laptop withdrew it: answered in the terminal, or the prompt dismissed.
+  // Distinct from `expired` on purpose — nothing timed out, and saying so would
+  // send you looking for a slow network that was never the problem.
+  cancelled: {
+    tone: 'warn', icon: I.clock, title: 'No longer waiting',
+    sub: 'Your machine stopped waiting for this — it was answered in the terminal, or the prompt was dismissed.',
+    hint: 'Nothing was approved or denied from here.',
+  },
+  decided: {
+    tone: '', icon: I.lock, title: 'Already answered',
+    sub: 'Something else answered this request first — a notification button, another device, or your terminal.',
+  },
+  missing: {
+    tone: '', icon: I.lock, title: 'Request not found',
+    sub: 'It has already been cleared, or it expired some time ago.',
+  },
+  offline: {
+    tone: 'warn', icon: I.info, title: 'Could not reach your machine',
+    sub: 'Your answer was not delivered. Check your connection, or answer in your terminal.',
+  },
+  unreadable: {
+    tone: 'warn', icon: I.lock, title: 'Cannot read this request',
+    sub: 'This phone does not hold the key for it. Nothing was approved.',
+    hint: 'Re-pair: tapproval pair --code',
+  },
+  claimfail: {
+    tone: 'warn', icon: I.clock, title: 'Pairing code expired',
+    sub: 'Codes last two minutes and work once — that is what makes them safe to show on screen.',
+    hint: 'Get a fresh one: tapproval pair --code',
+  },
+};
+
+const done = (status, opts = {}) => {
+  const key = opts.already ? 'decided' : (OUTCOME[status] ? status : 'expired');
+  const o = OUTCOME[key];
+  const recorded = {
+    allow: 'approved',
+    deny: 'denied',
+    answer: 'an option was chosen',
+    // Named as what it was, so the page does not read like something answered it
+    // here. This is the message you get for tapping a notification a moment after
+    // you had already dealt with the prompt at the keyboard.
+    local_allow: 'approved in the terminal',
+    local_deny: 'denied in the terminal',
+    local_answer: 'answered in the terminal',
+  }[status];
+  const verdictLine = opts.already && recorded
+    ? `<p class="terminal">Recorded answer: ${esc(recorded)}</p>`
+    : '';
+  el(`
+    <div class="head">${brand}</div>
+    <div class="outcome ${o.tone}" role="status" aria-live="polite">
+      <span class="mark">${o.icon}</span>
+      <h1>${o.title}</h1>
+      <p>${o.sub}</p>
+      ${o.hint ? `<p class="terminal">${o.hint}</p>` : ''}
+      ${verdictLine}
+    </div>
+  `);
+};
+
+/* ---------------- boot ---------------- */
+
+/**
+ * Trades a scanned 6-character code for this phone's own credentials.
+ *
+ * The payload key goes to IndexedDB as well as localStorage: the service worker
+ * needs it to turn "Tap to review" into the actual command, and a worker cannot
+ * see localStorage.
+ */
+async function claim(code) {
+  const res = await fetch('/api/claim', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) return false;
+  const d = await res.json();
+
+  store.set('mode', 'hosted');
+  store.set('phoneToken', d.phone_token);
+  store.set('payloadKey', d.payload_key);
+  store.set('deviceId', d.device_id);
+  if (d.onesignal_app_id) store.set('onesignalAppId', d.onesignal_app_id);
+
+  await self.AAP.saveSecrets({
+    payloadKey: d.payload_key,
+    phoneToken: d.phone_token,
+    deviceId: d.device_id,
+  });
+  return true;
+}
+
+async function boot() {
+  loading();
+  if (isPairCode) {
+    const claimed = await claim(pairArg);
+    history.replaceState(null, '', '/');
+    // Dead end into a retry rather than an outcome card: the code is consumed
+    // either way, and the screen that can accept a fresh one is right there.
+    if (!claimed) {
+      return unpairedScreen('That code has expired or was already used. Run pair again.');
+    }
+  }
+
+  // `?a=allow` is the notification action button's URL, used by desktop Chrome and
+  // as the fallback anywhere the service worker did not answer first.
+  const auto = new URLSearchParams(location.search).get('a');
+  const autoVerdict = auto === 'allow' || auto === 'deny' ? auto : null;
+
+  if (reqId) return reviewScreen(reqId, autoVerdict);
+
+  if (!isPaired()) return unpairedScreen();
+
+  // Opened at "/" — but there may be a request waiting. iOS opens the
+  // installed PWA at its start_url and drops the notification's URL.
+  try {
+    const path = mode() === 'hosted' ? '/api/request?pending=1' : '/api/pending';
+    const { id } = await (await api(path)).json();
+    if (id) return reviewScreen(id);
+  } catch {}
+
+  return pairScreen();
+}
+
+/**
+ * Reached "/" with no credentials — so: type the code in.
+ *
+ * This is the only pairing path that works for an installed iOS app, and it is
+ * not a fallback for the QR. A Home Screen web app gets its own storage
+ * container, so a code claimed in Safari leaves its `phoneToken` in Safari and
+ * the app still opens unpaired; iOS also opens a scanned link in Safari rather
+ * than the app, and the manifest's start_url drops the `/p/<code>` path anyway.
+ * Three separate reasons the scan cannot land here. The six characters are short
+ * enough to read off the terminal, which sidesteps all of them.
+ */
+function unpairedScreen(msg) {
+  el(`
+    <div class="head">${brand}</div>
+    <div class="stack grow">
+      <div>
+        <h1>Pair this phone</h1>
+        <p class="dim" style="margin-top:6px">
+          Run <code>tapproval pair --code</code> on your computer and type the
+          six characters it prints.
+        </p>
+      </div>
+      <div>
+        <input type="text" id="code" maxlength="6" placeholder="ABC123"
+               autocomplete="off" autocorrect="off" spellcheck="false"
+               autocapitalize="characters" inputmode="text"
+               aria-label="Six-character pair code"
+               style="text-transform:uppercase; letter-spacing:.28em; text-align:center; font-size:22px">
+        <p id="err" class="dim" style="margin-top:8px; min-height:1.2em; color:var(--danger)">${esc(msg ?? '')}</p>
+      </div>
+      ${isIOS && !isStandalone ? `
+      <div class="note" role="note">
+        ${I.info}
+        <div>
+          <b>iPhone &amp; iPad:</b> add this page to your Home Screen
+          (<kbd>Share</kbd> → <kbd>Add to Home Screen</kbd>) and pair from the
+          icon, not from Safari. An installed app has its own storage, so pairing
+          here would not carry over.
+        </div>
+      </div>` : ''}
+    </div>
+    <div class="foot">
+      <button id="go" disabled>Pair</button>
+    </div>
+  `);
+
+  const input = $('code');
+  const btn = $('go');
+  const err = $('err');
+  const clean = () => input.value.trim().toUpperCase();
+
+  input.oninput = () => {
+    err.textContent = '';
+    btn.disabled = !isPairCodeStr(clean());
+  };
+
+  btn.onclick = async () => {
+    const code = clean();
+    if (!isPairCodeStr(code)) return;
+    btn.disabled = true;
+    btn.textContent = 'Pairing...';
+    let claimed = false;
+    try {
+      claimed = await claim(code);
+    } catch {}
+    if (!claimed) {
+      // Same message for expired, already-claimed and mistyped: the phone cannot
+      // tell them apart, and a fresh code fixes all three.
+      return unpairedScreen('That code did not work — codes last two minutes and work once. Run pair again.');
+    }
+    return pairScreen();
+  };
+
+  input.onkeydown = (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); };
+  input.focus();
+}
+
+boot().catch((e) => el(`
+  <div class="head">${brand}</div>
+  <div class="outcome" role="status">
+    <span class="mark">${I.info}</span>
+    <h1>Something went wrong</h1>
+    <p class="terminal" style="max-width:100%">${esc(e.message)}</p>
+  </div>
+`));
+</script>
+</body>
+</html>

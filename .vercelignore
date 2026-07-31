@@ -1,0 +1,20 @@
+# Vercel needs public/ and nothing else. It runs no code at all now: the API is
+# seven Supabase Edge Functions, reached through the /api/:path* rewrite in
+# vercel.json.
+#
+# Everything below is the CLI, the self-hosted server, and the functions
+# themselves — they run on a laptop or on Supabase. Their presence is also what
+# made Vercel guess this repo was a Node server and try to boot server.mjs, so
+# keeping them out of the deployment is both smaller and less ambiguous.
+server.mjs
+bin/
+hook/
+lib/
+scripts/
+supabase/
+node_modules/
+
+*.md
+.env
+.env.*
+permission-demo.txt

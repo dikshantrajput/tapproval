@@ -1,0 +1,61 @@
+{
+  "name": "tapproval",
+  "version": "0.1.0",
+  "description": "Approve or deny your coding agent's permission prompts from your phone",
+  "type": "module",
+  "license": "MIT",
+  "author": "Dikshant Rajput <dikshant@jingo.app>",
+  "homepage": "https://github.com/dikshantrajput/tapproval#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dikshantrajput/tapproval.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dikshantrajput/tapproval/issues"
+  },
+  "bin": {
+    "tapproval": "bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "hook",
+    "public",
+    "scripts/install-hook.mjs",
+    "scripts/pair.mjs",
+    "server.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "claude-code",
+    "agent",
+    "hooks",
+    "push-notifications",
+    "approval",
+    "permissions",
+    "pwa"
+  ],
+  "scripts": {
+    "setup": "node bin/cli.mjs setup",
+    "serve": "node bin/cli.mjs start",
+    "pair": "node bin/cli.mjs pair",
+    "doctor": "node bin/cli.mjs doctor",
+    "dev": "DRY_RUN=1 PUBLIC_URL=http://localhost:8787 DEVICE_ID=dev-secret PORT=8787 node server.mjs",
+    "dev:hosted": "node scripts/dev-hosted.mjs",
+    "deploy:functions": "supabase functions deploy",
+    "test": "node scripts/verify.mjs && deno run -A scripts/verify-api.ts",
+    "test:node": "node scripts/verify.mjs",
+    "prepublishOnly": "node scripts/verify.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1"
+  }
+}

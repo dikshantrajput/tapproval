@@ -1,0 +1,44 @@
+# Supabase CLI config.
+#
+# The only thing that matters here is `verify_jwt = false` on every function.
+# These routes authenticate with their own credentials — a machineToken or a
+# phoneToken, matched against a sha256 hash in Postgres — and /api/devices and
+# /api/claim are unauthenticated by design (that is what makes setup promptless
+# and pairing a six-character code). None of those are Supabase JWTs, so leaving
+# the gateway's default JWT check on would make every route 401 before the
+# handler ever ran.
+#
+# The equivalent one-off is `supabase functions deploy <name> --no-verify-jwt`;
+# keeping it in the file means nobody has to remember the flag.
+
+project_id = "agent-approvals"
+
+[functions.devices]
+verify_jwt = false
+
+[functions.pair-codes]
+verify_jwt = false
+
+[functions.claim]
+verify_jwt = false
+
+[functions.notify]
+verify_jwt = false
+
+[functions.decide]
+verify_jwt = false
+
+# The laptop's two: withdrawing a request nobody is listening to any more, and
+# recording what the terminal decided once the prompt fell through to it. Both
+# authenticate with the machineToken.
+[functions.cancel]
+verify_jwt = false
+
+[functions.local-decide]
+verify_jwt = false
+
+[functions.request]
+verify_jwt = false
+
+[functions.health]
+verify_jwt = false

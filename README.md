@@ -1,5 +1,8 @@
 # tapproval
 
+[![npm](https://img.shields.io/npm/v/tapproval)](https://www.npmjs.com/package/tapproval)
+[![license](https://img.shields.io/npm/l/tapproval)](LICENSE)
+
 Approve or deny your coding agent's permission prompts from your phone.
 
 Your agent asks to run `rm -rf build/`. Your phone buzzes. You tap Approve from

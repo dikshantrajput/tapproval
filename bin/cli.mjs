@@ -370,18 +370,21 @@ async function printTypedCode(cfg) {
 /**
  * iOS: install first, pair second, and deliberately no QR of a pair code.
  *
- * The QR here encodes the bare site root, which is safe to scan at any time and
- * carries no code to waste. The code is minted only after the app is open, so its
+ * The QR here encodes the app itself, /app — safe to scan at any time and carrying
+ * no code to waste. It must not be the bare origin: "/" is the landing page, which
+ * links no manifest, so Add to Home Screen there installs a bookmark to marketing
+ * rather than the app. The code is minted only after the app is open, so its
  * two-minute life starts when the user is ready to type it rather than being spent
  * on the Add to Home Screen detour — which was the whole problem.
  */
 async function pairIos(cfg) {
+  const appUrl = `${cfg.apiBase}/app`;
   console.log(`\n  ${c.b('iPhone — install first, then pair.')}`);
   console.log(c.dim('  A Home Screen app has its own storage, so pairing in Safari does not'));
   console.log(c.dim('  reach it. Scanning a code would only pair Safari, and spend the code.\n'));
   console.log(`  ${c.b('1.')} Open this in ${c.b('Safari')} on your iPhone:\n`);
-  qrcode.generate(cfg.apiBase, { small: true });
-  console.log(`\n     ${cfg.apiBase}\n`);
+  qrcode.generate(appUrl, { small: true });
+  console.log(`\n     ${appUrl}\n`);
   console.log(`  ${c.b('2.')} Share → ${c.b('Add to Home Screen')}`);
   console.log(`  ${c.b('3.')} Close Safari and open the app ${c.b('from the Home Screen icon')}`);
   console.log(`     ${c.dim('It will show "Pair this phone" with a box for six characters.')}\n`);

@@ -1,6 +1,6 @@
 {
   "name": "tapproval",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Approve or deny your coding agent's permission prompts from your phone",
   "type": "module",
   "license": "MIT",

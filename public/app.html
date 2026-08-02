@@ -11,71 +11,63 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="tapproval">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#07080b">
 <style>
-  /* The accent matches the landing page's violet so the app reads as the same
-     product. Both themes stay: this is a tool people open in daylight and in
-     bed, and the OS decides which. */
+  /* One world, the landing page's: same void, same violet, same semantic green
+     and red. Single-theme dark on purpose - a light variant would dilute it, and
+     this is a screen read at 3am with one thumb. */
   :root {
-    --bg: #f3f4f7;
-    --surface: #ffffff;
-    --inset: #eef0f5;
-    --line: #dcdfe7;
-    --line-strong: #bcc1cd;
-    --fg: #12141a;
-    --fg-dim: #5a6170;
-    --accent: #4f46d6;
-    --accent-fg: #ffffff;
-    --ok: #0f6b3f;
-    --ok-soft: #e6f5ec;
-    --danger: #b31f27;
-    --danger-soft: #fdeaea;
-    --warn: #8a5000;
-    --warn-soft: #fdf1de;
+    --bg: #07080b;
+    --surface: #14171d;
+    --inset: #0a0c10;
+    --line: rgba(255, 255, 255, .09);
+    --line-strong: rgba(255, 255, 255, .2);
+    --fg: #f2f4f8;
+    --fg-dim: #a7aebd;
+    --accent: #8f8cf8;
+    --accent-fg: #0b0c14;
+    --ok: #56cc8a;
+    --ok-soft: rgba(86, 204, 138, .12);
+    --danger: #f4767f;
+    --danger-soft: rgba(244, 118, 127, .12);
+    --warn: #e3b25e;
+    --warn-soft: rgba(227, 178, 94, .12);
 
-    --shadow: 0 1px 2px rgba(16, 20, 30, .05), 0 8px 24px -14px rgba(16, 20, 30, .2);
-    --shadow-lift: 0 1px 2px rgba(16, 20, 30, .06), 0 20px 40px -22px rgba(16, 20, 30, .3);
-    --ring: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
+    /* Glass: two very low white alphas over the surface, never a flat fill. */
+    --glass: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .018));
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5);
+    --shadow-lift: 0 1px 2px rgba(0, 0, 0, .5), 0 30px 60px -32px rgba(0, 0, 0, .95);
+    --ring: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  /* Dark is the landing page's palette verbatim — same void, same violet, same
-     semantic greens and reds — so the app a notification opens looks like the
-     site it came from. */
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #07080b;
-      --surface: #14171d;
-      --inset: #0a0c10;
-      --line: rgba(255, 255, 255, .09);
-      --line-strong: rgba(255, 255, 255, .18);
-      --fg: #f2f4f8;
-      --fg-dim: #a7aebd;
-      --accent: #8f8cf8;
-      --accent-fg: #0b0c14;
-      --ok: #56cc8a;
-      --ok-soft: #10291d;
-      --danger: #f4767f;
-      --danger-soft: #2b1517;
-      --warn: #e3b25e;
-      --warn-soft: #2a2013;
 
-      --shadow: 0 1px 2px rgba(0, 0, 0, .5);
-      --shadow-lift: 0 1px 2px rgba(0, 0, 0, .5), 0 28px 56px -30px rgba(0, 0, 0, .95);
-    }
-
-    /* The landing page's aurora, dimmed right down and held still. This screen
-       is read at 3am with one thumb; it wants atmosphere, not movement. */
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -15vh -10vw;
-      z-index: -1;
-      pointer-events: none;
-      background:
-        radial-gradient(60vw 40vh at 6% 8%, rgba(31, 125, 92, .16), transparent 65%),
-        radial-gradient(70vw 45vh at 96% 0%, rgba(75, 63, 150, .26), transparent 68%);
-      filter: blur(14px);
-    }
+  /* The landing page's aurora: violet overhead, a cooler green low and left, and
+     a horizon wash so the cards have ground to stand on. It drifts, slowly. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -20vh -15vw;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(60vw 42vh at 8% 12%, rgba(31, 125, 92, .18), transparent 66%),
+      radial-gradient(72vw 48vh at 96% -4%, rgba(96, 82, 190, .34), transparent 68%),
+      radial-gradient(50vw 34vh at 60% 40%, rgba(143, 140, 248, .12), transparent 70%);
+    filter: blur(18px);
+    animation: drift 30s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate3d(-2%, -1%, 0) scale(1); }
+    to   { transform: translate3d(2%, 2%, 0) scale(1.06); }
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 40% 0 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent, rgba(7, 8, 11, .82) 62%, #07080b);
   }
 
   * { box-sizing: border-box; }
@@ -106,19 +98,19 @@
     #app { max-width: 560px; margin: 0 auto; }
   }
 
-  h1 { font: 600 20px/1.28 inherit; margin: 0; letter-spacing: -.02em; }
-  h2 { font: 600 14px/1.35 inherit; margin: 0; }
+  h1 { font-weight: 600; font-size: 23px; line-height: 1.22; margin: 0; letter-spacing: -.035em; }
+  h2 { font-weight: 600; font-size: 14px; line-height: 1.35; margin: 0; }
   p { margin: 0; }
   .dim { color: var(--fg-dim); font-size: 14px; }
 
-  /* Inline code in body copy — the pair screen names a real command. */
+  /* Inline code in body copy - the pair screen names a real command. */
   code {
-    font: .9em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-    padding: 2px 5px;
+    font: .9em/1.4 var(--mono);
+    padding: 2px 6px;
     color: var(--fg);
-    background: var(--inset);
+    background: rgba(255, 255, 255, .05);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 7px;
     word-break: break-word;
   }
 
@@ -134,22 +126,25 @@
     gap: 12px; min-height: 28px;
   }
   .brand {
-    display: flex; align-items: center; gap: 8px;
-    font: 600 14px/1 inherit; color: var(--fg-dim);
-    letter-spacing: -.01em;
+    display: flex; align-items: center; gap: 9px;
+    font: 600 11.5px/1 var(--mono); color: var(--fg-dim);
+    letter-spacing: .2em; text-transform: uppercase;
   }
   .brand svg, .brand img {
     width: 24px; height: 24px; flex: none;
-    display: block; border-radius: 6px; object-fit: contain;
+    display: block; border-radius: 7px; object-fit: contain;
+    box-shadow: 0 0 0 1px var(--line), 0 6px 18px -10px color-mix(in srgb, var(--accent) 80%, transparent);
   }
   .grow { flex: 1 1 auto; min-height: 0; }
   .stack { display: flex; flex-direction: column; gap: 14px; }
   .foot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
 
   .card {
-    background: var(--surface);
+    background: var(--glass), var(--surface);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: 20px;
     box-shadow: var(--shadow);
   }
 
@@ -164,40 +159,40 @@
   }
   .req-top {
     display: flex; align-items: center; gap: 10px;
-    padding: 13px 14px;
+    padding: 13px 15px;
     border-bottom: 1px solid var(--line);
   }
   .tool {
-    font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-    letter-spacing: .06em; text-transform: uppercase;
+    font: 600 11.5px/1 var(--mono);
+    letter-spacing: .16em; text-transform: uppercase;
     color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-    padding: 6px 10px; border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    padding: 6px 10px; border-radius: 999px;
     white-space: nowrap;
+    box-shadow: 0 0 18px -8px color-mix(in srgb, var(--accent) 90%, transparent);
   }
   .asks { color: var(--fg-dim); font-size: 13px; }
 
   pre {
-    margin: 0; padding: 14px;
+    margin: 0; padding: 15px;
     flex: 1 1 auto; min-height: 96px;
     overflow: auto; -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    /* The payload is the one true terminal on the screen - let it drop to the
+       page's own black rather than sitting a shade above it. */
     background: var(--inset);
     color: var(--fg);
-    font: 13.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 13.5px/1.6 var(--mono);
     white-space: pre-wrap; word-break: break-word;
     tab-size: 2;
-    /* A hairline of shade at the top edge: says "this panel scrolls" when the
-       payload is longer than the card. */
-    box-shadow: inset 0 1px 0 rgba(0, 0, 0, .05);
   }
   .cwd {
     display: flex; align-items: center; gap: 7px;
-    padding: 10px 14px;
+    padding: 10px 15px;
     border-top: 1px solid var(--line);
     color: var(--fg-dim);
-    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 12px/1.4 var(--mono);
     word-break: break-all;
   }
   .cwd svg { width: 13px; height: 13px; flex: none; opacity: .8; }
@@ -206,9 +201,13 @@
 
   .clock {
     display: flex; align-items: center; gap: 8px;
-    font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 600 12.5px/1 var(--mono);
+    letter-spacing: .06em;
     color: var(--fg-dim);
     font-variant-numeric: tabular-nums;
+    padding: 6px 10px; border-radius: 999px;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid var(--line);
   }
   .clock svg { width: 13px; height: 13px; flex: none; }
   .clock .track {
@@ -232,10 +231,13 @@
   /* ---- controls --------------------------------------------------------- */
 
   input[type="text"] {
-    width: 100%; padding: 14px;
-    border: 1px solid var(--line); border-radius: 12px;
-    background: var(--surface); color: var(--fg);
-    font: 14px/1.4 inherit;
+    width: 100%; padding: 14px 15px;
+    border: 1px solid var(--line); border-radius: 14px;
+    background: var(--glass), var(--surface);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: var(--fg);
+    font-family: inherit; font-size: 14px; line-height: 1.4;
     transition: border-color .15s, box-shadow .15s;
   }
   input[type="text"]:focus {
@@ -250,9 +252,9 @@
   button {
     position: relative; overflow: hidden;
     min-height: 54px; padding: 15px 18px;
-    border-radius: 14px; border: 1px solid transparent;
-    font: 600 16px/1.2 inherit;
-    letter-spacing: -.01em;
+    border-radius: 999px; border: 1px solid transparent;
+    font-family: inherit; font-weight: 600; font-size: 16px; line-height: 1.2;
+    letter-spacing: -.015em;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -267,38 +269,52 @@
     outline-offset: 2px;
   }
 
-  /* Deny: light, cheap to hit, sits under the thumb. */
+  /* Deny: glass, cheap to hit, sits under the thumb. */
   #deny {
     flex: 0 0 38%;
-    background: var(--surface);
+    background: var(--glass), var(--surface);
     border-color: var(--line-strong);
     color: var(--danger);
   }
   #deny:active:not(:disabled) {
     background: var(--danger-soft);
-    border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 50%, transparent);
   }
 
-  /* Approve: the solid one. */
+  /* Approve: the glow pill. Green because it means allow, not because it is the
+     accent - the two vocabularies stay separate. */
   #allow {
     flex: 1 1 auto;
-    background: var(--ok);
-    border-color: var(--ok);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--ok) 92%, #ffffff),
+      color-mix(in srgb, var(--ok) 88%, #000000));
+    border-color: color-mix(in srgb, var(--ok) 70%, #ffffff);
     color: var(--accent-fg);
-    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--ok) 75%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--ok) 22%, transparent),
+      0 12px 34px -14px color-mix(in srgb, var(--ok) 95%, transparent);
   }
-  #allow:active:not(:disabled) { opacity: .85; box-shadow: none; }
+  #allow:active:not(:disabled) { opacity: .88; box-shadow: none; }
   #allow .lbl { display: inline-flex; align-items: center; gap: 8px; }
   #allow .lbl svg { width: 17px; height: 17px; }
 
   #enable {
     width: 100%;
-    background: var(--accent); color: var(--accent-fg);
-    border-color: transparent;
-    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--accent) 75%, transparent);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 96%, #ffffff),
+      color-mix(in srgb, var(--accent) 86%, #000000));
+    color: var(--accent-fg);
+    border-color: color-mix(in srgb, var(--accent) 70%, #ffffff);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+      0 12px 34px -14px color-mix(in srgb, var(--accent) 95%, transparent);
   }
   #enable:active:not(:disabled) { opacity: .9; box-shadow: none; }
-  #enable:disabled { background: var(--surface); border-color: var(--line); color: var(--ok); opacity: 1; }
+  #enable:disabled {
+    background: var(--glass), var(--surface);
+    border-color: color-mix(in srgb, var(--ok) 35%, transparent);
+    color: var(--ok); opacity: 1; box-shadow: none;
+  }
 
   /* ---- questions: options replace the verdict ---------------------------- */
 
@@ -309,13 +325,13 @@
     padding: 14px;
   }
   .q { display: flex; flex-direction: column; gap: 9px; }
-  .q .ask { font: 600 15.5px/1.4 inherit; }
+  .q .ask { font-weight: 600; font-size: 16px; line-height: 1.35; letter-spacing: -.025em; }
   .q .hdr {
     align-self: flex-start;
-    font: 600 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-    letter-spacing: .05em; text-transform: uppercase;
-    color: var(--fg-dim); background: var(--inset);
-    border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px;
+    font: 600 10.5px/1 var(--mono);
+    letter-spacing: .2em; text-transform: uppercase;
+    color: var(--fg-dim); background: rgba(255, 255, 255, .04);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px;
   }
   .q .many { color: var(--fg-dim); font-size: 12.5px; }
   .opts { display: flex; flex-direction: column; gap: 8px; }
@@ -326,8 +342,9 @@
     display: flex; align-items: flex-start; gap: 10px;
     width: 100%; min-height: 0; padding: 13px;
     text-align: left; font: inherit; color: inherit;
-    background: var(--inset);
-    border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(255, 255, 255, .035);
+    border: 1px solid var(--line); border-radius: 14px;
+    transition: background-color .15s, border-color .15s, transform .1s ease;
   }
   .opt:active { border-color: var(--line-strong); }
   .opt .tick {
@@ -337,11 +354,12 @@
     transition: background-color .15s, border-color .15s;
   }
   .opt .tick svg { width: 12px; height: 12px; opacity: 0; transition: opacity .15s; }
-  .opt .lab { font: 600 14.5px/1.35 inherit; }
+  .opt .lab { font-weight: 600; font-size: 14.5px; line-height: 1.35; }
   .opt .desc { color: var(--fg-dim); font-size: 12.5px; line-height: 1.4; margin-top: 2px; }
   .opt[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    box-shadow: 0 10px 30px -18px color-mix(in srgb, var(--accent) 95%, transparent);
   }
   .opt[aria-pressed="true"] .tick {
     background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
@@ -349,27 +367,37 @@
   .opt[aria-pressed="true"] .tick svg { opacity: 1; }
 
   /* Same weights as Approve/Deny: the send is solid, the walk-away is quiet. */
-  #send {
+  #send, #go {
     flex: 1 1 auto;
-    background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
-    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--accent) 75%, transparent);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 96%, #ffffff),
+      color-mix(in srgb, var(--accent) 86%, #000000));
+    border-color: color-mix(in srgb, var(--accent) 70%, #ffffff);
+    color: var(--accent-fg);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+      0 12px 34px -14px color-mix(in srgb, var(--accent) 95%, transparent);
   }
-  #send:disabled { box-shadow: none; }
-  #send:active:not(:disabled) { opacity: .85; box-shadow: none; }
+  #go { width: 100%; }
+  #send:disabled, #go:disabled { box-shadow: none; }
+  #send:active:not(:disabled), #go:active:not(:disabled) { opacity: .85; box-shadow: none; }
   #dismiss {
     flex: 0 0 38%;
-    background: var(--surface); border-color: var(--line-strong); color: var(--fg-dim);
+    background: var(--glass), var(--surface);
+    border-color: var(--line-strong); color: var(--fg-dim);
   }
-  #dismiss:active:not(:disabled) { background: var(--inset); }
+  #dismiss:active:not(:disabled) { background: rgba(255, 255, 255, .07); }
 
   /* ---- callout / status ------------------------------------------------- */
 
   .note {
     display: flex; gap: 10px;
-    padding: 13px 14px;
-    border-radius: 14px;
+    padding: 13px 15px;
+    border-radius: 16px;
     background: var(--warn-soft);
-    border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     color: var(--fg);
     font-size: 13.5px; line-height: 1.5;
   }
@@ -382,20 +410,22 @@
   }
 
   #state {
-    display: flex; align-items: center; gap: 8px;
-    font: 500 14px/1.4 inherit; color: var(--fg-dim);
+    display: flex; align-items: center; gap: 9px;
+    font-weight: 500; font-size: 14px; line-height: 1.4; color: var(--fg-dim);
     min-height: 20px;
+    padding: 10px 13px; border-radius: 999px;
+    background: rgba(255, 255, 255, .035);
+    border: 1px solid var(--line);
   }
   #state .dot {
     width: 8px; height: 8px; border-radius: 999px; flex: none;
     background: var(--line-strong);
     transition: background-color .2s, box-shadow .2s;
   }
-  #state.on { color: var(--ok); }
-  #state.on .dot {
-    background: var(--ok);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent);
-  }
+  /* Subscribed is the one state that needs no line of prose: the button right
+     below it already reads "Subscribed" and is disabled. Only the states that
+     mean something is wrong - or not done yet - get to take up room. */
+  #state.on { display: none; }
 
   /* ---- outcome ---------------------------------------------------------- */
 
@@ -405,16 +435,17 @@
     gap: 12px; text-align: center; padding: 24px 8px;
   }
   .outcome .mark {
-    width: 64px; height: 64px; border-radius: 999px;
+    width: 72px; height: 72px; border-radius: 999px;
     display: grid; place-items: center;
-    background: var(--inset); color: var(--fg-dim);
+    background: rgba(255, 255, 255, .04); color: var(--fg-dim);
     border: 1px solid var(--line);
-    /* The verdict landed — let the badge arrive rather than appear. */
+    box-shadow: 0 20px 50px -26px currentColor;
+    /* The verdict landed - let the badge arrive rather than appear. */
     animation: stamp .4s cubic-bezier(.2, 1.3, .4, 1) both;
   }
   @keyframes stamp { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
-  .outcome .mark svg { width: 30px; height: 30px; }
-  .outcome h1 { font-size: 22px; }
+  .outcome .mark svg { width: 32px; height: 32px; }
+  .outcome h1 { font-size: 26px; }
   .outcome p { max-width: 30ch; color: var(--fg-dim); font-size: 14.5px; }
   .outcome.ok .mark { background: var(--ok-soft); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
   .outcome.no .mark { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
@@ -437,10 +468,18 @@
   /* ---- history ---------------------------------------------------------- */
 
   .hist { display: flex; flex-direction: column; gap: 8px; }
-  .hist h2 { color: var(--fg-dim); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+  /* The list is self-evidently the recent requests - the label was just a word
+     taking up thumb-height. Hidden rather than removed: it stays as the
+     accessible name for the group. */
+  .hist h2 {
+    position: absolute; width: 1px; height: 1px;
+    margin: -1px; padding: 0; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
   .entry {
-    border-radius: 12px; overflow: hidden;
-    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden;
+    background: var(--glass), var(--surface);
+    border: 1px solid var(--line);
     transition: border-color .15s;
   }
   .entry.open { border-color: var(--line-strong); }
@@ -451,12 +490,12 @@
     min-height: 0; text-align: left; color: inherit;
     font: inherit;
   }
-  .item:active { background: var(--inset); }
+  .item:active { background: rgba(255, 255, 255, .05); }
   .entry.open .item { border-bottom: 1px solid var(--line); }
   .entry .detail {
     padding: 11px 13px;
     background: var(--inset);
-    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 12.5px/1.5 var(--mono);
     white-space: pre-wrap; word-break: break-word;
   }
   .entry .meta {
@@ -464,7 +503,8 @@
     color: var(--fg-dim); font-size: 11.5px; word-break: break-all;
   }
   .item .who {
-    font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 600 11px/1 var(--mono);
+    letter-spacing: .1em; text-transform: uppercase;
     color: var(--fg-dim); flex: none;
   }
   .item .what {
@@ -472,10 +512,15 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .item .when { flex: none; font-size: 11.5px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+  /* Long-hand, not the `font` shorthand: `font: … inherit` parses "inherit" as a
+     family *name*, so the pill was falling back to the browser default face and
+     rendering heavier than its size suggested. */
   .pill {
-    flex: none; font: 600 9.5px/1 inherit; letter-spacing: .04em;
-    padding: 4px 6px; border-radius: 999px; text-transform: capitalize;
-    background: var(--inset); color: var(--fg-dim); font-size: 10px;
+    flex: none;
+    font-family: inherit; font-weight: 600; font-size: 9.5px; line-height: 1;
+    letter-spacing: .04em;
+    padding: 4px 7px; border-radius: 999px; text-transform: capitalize;
+    background: rgba(255, 255, 255, .06); color: var(--fg-dim);
   }
   .pill.allow,
   .pill.local_allow { background: var(--ok-soft); color: var(--ok); }
@@ -485,7 +530,7 @@
   .pill.local_deny { background: var(--danger-soft); color: var(--danger); }
   .pill.expired,
   .pill.cancelled { background: var(--warn-soft); color: var(--warn); }
-  /* Same colour as its phone-side twin — the verdict is the verdict — but hollow,
+  /* Same colour as its phone-side twin - the verdict is the verdict - but hollow,
      so a glance down the list separates "I decided this here" from "this was
      decided at the keyboard" without having to read every label. */
   .pill.local_allow,
@@ -497,38 +542,19 @@
   }
 
   .outcome .terminal {
-    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 12.5px/1.5 var(--mono);
     color: var(--fg-dim);
     background: var(--inset); border: 1px solid var(--line);
-    border-radius: 10px; padding: 9px 12px;
-  }
-
-  /* ---- dark-mode glass -------------------------------------------------- */
-
-  /* Last in the sheet on purpose: these are overrides of the flat `--surface`
-     fills set above, and equal specificity means source order decides. */
-  @media (prefers-color-scheme: dark) {
-    .card, .entry, input[type="text"], #deny, #dismiss {
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .017)),
-        #14171d;
-    }
-    /* The payload is the one true terminal on the screen — let it go to the
-       page's own black instead of sitting a shade above it. */
-    pre, .entry .detail, .entry .meta {
-      background: #07080b;
-      box-shadow: none;
-    }
-    .opt { background: rgba(255, 255, 255, .035); }
-    .outcome .terminal { background: #07080b; }
+    border-radius: 12px; padding: 9px 13px;
   }
 
   /* ---- reduced motion --------------------------------------------------- */
 
-  /* The spinner still turns — it is a status indicator, not decoration — but
-     slower, and everything decorative stops. */
+  /* The spinner still turns - it is a status indicator, not decoration - but
+     slower, and everything decorative stops, aurora included. */
   @media (prefers-reduced-motion: reduce) {
     .spinner { animation-duration: 2s; }
+    body::before,
     #app > *,
     .outcome .mark,
     .clock.crit .bar { animation: none; }
@@ -650,7 +676,7 @@ const ago = (t) => {
   return `${Math.floor(s / 86400)}d ago`;
 };
 
-/** Rows the user has expanded — kept across the 5s refresh so a poll does not
+/** Rows the user has expanded - kept across the 5s refresh so a poll does not
     snap a row shut while it is being read. */
 const openRows = new Set();
 
@@ -660,7 +686,7 @@ const openRows = new Set();
  * The `local_*` three are decisions made at the keyboard: the prompt fell through
  * to the terminal because this phone did not answer in time, and the machine
  * reported back what happened there. "· terminal" rather than a different word for
- * the verdict, because the verdict is the same one — only the place changed.
+ * the verdict, because the verdict is the same one - only the place changed.
  *
  * `cancelled` keeps its narrower meaning: we stopped waiting and never found out.
  */
@@ -699,7 +725,7 @@ async function renderHistory(into) {
     // `local_*` is the same decision taken at the keyboard instead of here. The
     // history says so rather than hiding it: "who decided this, and where" is the
     // question this list exists to answer, and it used to have no answer at all
-    // for the prompts you handled in the terminal — which is most of them.
+    // for the prompts you handled in the terminal - which is most of them.
     const label = LABEL[r.status] ?? 'Timed out';
     const full = r.detail || r.summary || '';
     const meta = [
@@ -714,7 +740,7 @@ async function renderHistory(into) {
     cards.push(`
       <div class="entry ${open ? 'open' : ''}" data-id="${esc(r.id)}">
         <button type="button" class="item" aria-expanded="${open}">
-          <span class="who">${esc(r.tool ?? '—')}</span>
+          <span class="who">${esc(r.tool ?? '-')}</span>
           <span class="what">${esc(r.summary || full)}</span>
           <span class="when">${ago(r.createdAt)}</span>
           <span class="pill ${esc(r.status)}">${label}</span>
@@ -726,7 +752,7 @@ async function renderHistory(into) {
 
   into.innerHTML = `<div class="hist"><h2>Recent</h2>${cards.join('')}</div>`;
 
-  // Tap a row to see the whole command — the one-line summary is truncated.
+  // Tap a row to see the whole command - the one-line summary is truncated.
   for (const btn of into.querySelectorAll('.item')) {
     btn.onclick = () => {
       const entry = btn.parentElement;
@@ -742,13 +768,13 @@ async function renderHistory(into) {
  * While the home screen is open, watch for a request arriving.
  *
  * A notification is the primary path, but the phone may already be looking at
- * this page — where nothing would ever change on its own. Polls the same
+ * this page - where nothing would ever change on its own. Polls the same
  * "anything pending?" route the boot path uses, and jumps straight into the
  * review screen when one appears. Stops when the view changes underneath it,
  * and idles while the page is backgrounded.
  *
  * Capped at five minutes: a phone left on this screen all day should not keep
- * hitting the API forever — after that the notification is the only path back,
+ * hitting the API forever - after that the notification is the only path back,
  * which is what it is for.
  */
 const WATCH_EVERY = 5000;
@@ -760,7 +786,7 @@ function watchForRequests(histEl) {
   const pendingPath = mode() === 'hosted' ? '/api/request?pending=1' : '/api/pending';
 
   const tick = async () => {
-    if (view !== mine) return;                    // screen moved on — stop
+    if (view !== mine) return;                    // screen moved on - stop
     if (Date.now() > until) return;               // gave up watching
     if (document.hidden) return schedule();
     try {
@@ -799,7 +825,7 @@ async function pairScreen() {
         <h1>Pair this phone</h1>
         <p class="dim" style="margin-top:6px">
           Your machine will ask here before it does anything that needs
-          permission. You approve or deny — nothing else is sent.
+          permission. You approve or deny - nothing else is sent.
         </p>
       </div>
       ${iosNote}
@@ -825,7 +851,7 @@ async function pairScreen() {
   // permission prompt can still be granted while nothing subscribes, which is
   // the exact state that looks fine here and delivers nothing.
   if (isIOS && !isStandalone) {
-    label.textContent = 'Open this from the Home Screen icon — Safari cannot subscribe.';
+    label.textContent = 'Open this from the Home Screen icon - Safari cannot subscribe.';
     btn.disabled = true;
     return;
   }
@@ -842,7 +868,7 @@ async function pairScreen() {
     });
 
     // Bind this browser to the machine's device id so the server can target
-    // it with include_aliases.external_id — no subscription table needed.
+    // it with include_aliases.external_id - no subscription table needed.
     await OneSignal.login(deviceId);
 
     const sub = () => OneSignal.User.PushSubscription;
@@ -854,7 +880,7 @@ async function pairScreen() {
      * On iOS that can be true with no push token ever registered, and then every
      * send comes back `invalid_aliases` with nothing delivered. Only a token (or
      * subscription id) means a notification can actually arrive, so that is what
-     * this reports — a green tick here has to mean the pipeline works.
+     * this reports - a green tick here has to mean the pipeline works.
      */
     const sync = () => {
       const granted = OneSignal.Notifications.permission;
@@ -862,9 +888,9 @@ async function pairScreen() {
       const live = Boolean(granted && s.optedIn && (s.id || s.token));
 
       label.textContent = live
-        ? '✅ Subscribed — you can close this page.'
+        ? '✅ Subscribed - you can close this page.'
         : granted
-          ? '⚠️ Permission granted but no push token — nothing will arrive. Try again.'
+          ? '⚠️ Permission granted but no push token - nothing will arrive. Try again.'
           : 'Not subscribed yet.';
       state.classList.toggle('on', live);
       btn.disabled = live;
@@ -878,7 +904,7 @@ async function pairScreen() {
       btn.disabled = true;
       try {
         await OneSignal.Notifications.requestPermission();
-        // Granting permission does not by itself create a subscription — ask.
+        // Granting permission does not by itself create a subscription - ask.
         if (!sub().optedIn) await sub().optIn();
       } catch {} finally {
         sync();
@@ -894,7 +920,7 @@ async function pairScreen() {
  *
  * The push has a TTL but the notification does not expire with it, so a request
  * answered elsewhere leaves a live-looking "Approve Bash?" on the lock screen
- * that nothing else clears. Matches the id in the tag or the data payload —
+ * that nothing else clears. Matches the id in the tag or the data payload -
  * OneSignal does not use the same tag on every platform (see the worker).
  *
  * Best-effort throughout: there is no correctness riding on it.
@@ -956,7 +982,7 @@ function questionsHtml(questions) {
  * single-choice question sends on the tap.
  *
  * That is the common case by far, and it makes answering one question exactly as
- * cheap as approving one command — one tap, from the notification. Anything with
+ * cheap as approving one command - one tap, from the notification. Anything with
  * more than one question, or with multi-select anywhere, needs a confirm step
  * instead, because a tap there means "also this" rather than "that one, done".
  */
@@ -992,7 +1018,7 @@ function wireQuestions(questions, send) {
       }
 
       if (oneTap) return send('answer', payload());
-      // Every question needs an answer — the tool expects one per question.
+      // Every question needs an answer - the tool expects one per question.
       sendBtn.disabled = chosen.some((s) => !s.size);
     };
   }
@@ -1015,11 +1041,11 @@ async function reviewScreen(id, autoVerdict) {
   }
 
   // Never render Approve/Deny for a request that is already settled. A tap on a
-  // notification can arrive long after the answer did — from the terminal, from
-  // another phone, or from the notification's own action button — and the whole
+  // notification can arrive long after the answer did - from the terminal, from
+  // another phone, or from the notification's own action button - and the whole
   // point of re-reading status here is that the buttons never lie about being live.
   if (r.status !== 'pending') {
-    // A settled status carries a verdict worth echoing back — including one taken
+    // A settled status carries a verdict worth echoing back - including one taken
     // in the terminal, which is the case this notification most often loses to.
     // `expired` and `cancelled` each get their own card instead.
     clearNotifications(id);
@@ -1035,7 +1061,7 @@ async function reviewScreen(id, autoVerdict) {
       if (!payloadKey) throw new Error('no key');
       Object.assign(r, await self.AAP.decryptPayload(payloadKey, r.payload_ciphertext));
     } catch {
-      // Never show a request we cannot read and then offer an Approve button —
+      // Never show a request we cannot read and then offer an Approve button -
       // you would be approving something invisible.
       return done('unreadable');
     }
@@ -1110,7 +1136,7 @@ async function reviewScreen(id, autoVerdict) {
   /* --- decide ---------------------------------------------------------- */
   /**
    * `picked` is index-keyed, matching the wire format the hook validates against
-   * the options it sent — the question text never has to travel back.
+   * the options it sent - the question text never has to travel back.
    */
   const send = async (verdict, picked) => {
     if (settled) return;
@@ -1163,7 +1189,7 @@ async function reviewScreen(id, autoVerdict) {
 
   // Desktop Chrome does open an action button's URL (`/r/<id>?a=allow`), so honour
   // it. On Android the service worker has already answered by fetch and this page
-  // never opens — see OneSignalSDKWorker.js.
+  // never opens - see OneSignalSDKWorker.js.
   //
   // Never for a question: a verdict cannot answer one, and auto-firing it would
   // settle the row with nothing chosen. Those land on the option list instead.
@@ -1187,20 +1213,20 @@ const OUTCOME = {
   },
   expired: {
     tone: 'warn', icon: I.clock, title: 'Timed out',
-    sub: 'This request expired before your answer reached your machine — it was <b>not</b> delivered.',
+    sub: 'This request expired before your answer reached your machine - it was <b>not</b> delivered.',
     hint: 'Answer the prompt in your terminal instead.',
   },
   // The laptop withdrew it: answered in the terminal, or the prompt dismissed.
-  // Distinct from `expired` on purpose — nothing timed out, and saying so would
+  // Distinct from `expired` on purpose - nothing timed out, and saying so would
   // send you looking for a slow network that was never the problem.
   cancelled: {
     tone: 'warn', icon: I.clock, title: 'No longer waiting',
-    sub: 'Your machine stopped waiting for this — it was answered in the terminal, or the prompt was dismissed.',
+    sub: 'Your machine stopped waiting for this - it was answered in the terminal, or the prompt was dismissed.',
     hint: 'Nothing was approved or denied from here.',
   },
   decided: {
     tone: '', icon: I.lock, title: 'Already answered',
-    sub: 'Something else answered this request first — a notification button, another device, or your terminal.',
+    sub: 'Something else answered this request first - a notification button, another device, or your terminal.',
   },
   missing: {
     tone: '', icon: I.lock, title: 'Request not found',
@@ -1217,7 +1243,7 @@ const OUTCOME = {
   },
   claimfail: {
     tone: 'warn', icon: I.clock, title: 'Pairing code expired',
-    sub: 'Codes last two minutes and work once — that is what makes them safe to show on screen.',
+    sub: 'Codes last two minutes and work once - that is what makes them safe to show on screen.',
     hint: 'Get a fresh one: tapproval pair --code',
   },
 };
@@ -1304,7 +1330,7 @@ async function boot() {
 
   if (!isPaired()) return unpairedScreen();
 
-  // Opened at "/" — but there may be a request waiting. iOS opens the
+  // Opened at "/" - but there may be a request waiting. iOS opens the
   // installed PWA at its start_url and drops the notification's URL.
   try {
     const path = mode() === 'hosted' ? '/api/request?pending=1' : '/api/pending';
@@ -1316,7 +1342,7 @@ async function boot() {
 }
 
 /**
- * Reached "/" with no credentials — so: type the code in.
+ * Reached "/" with no credentials - so: type the code in.
  *
  * This is the only pairing path that works for an installed iOS app, and it is
  * not a fallback for the QR. A Home Screen web app gets its own storage
@@ -1383,7 +1409,7 @@ function unpairedScreen(msg) {
     if (!claimed) {
       // Same message for expired, already-claimed and mistyped: the phone cannot
       // tell them apart, and a fresh code fixes all three.
-      return unpairedScreen('That code did not work — codes last two minutes and work once. Run pair again.');
+      return unpairedScreen('That code did not work - codes last two minutes and work once. Run pair again.');
     }
     return pairScreen();
   };

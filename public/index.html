@@ -637,6 +637,75 @@
   .player > div { aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; }
   .player iframe { display: block; width: 100%; height: 100%; border: 0; }
 
+  /* ---- faq --------------------------------------------------------- */
+
+  .faq { margin-top: 3rem; display: grid; gap: .7rem; }
+  .faq details {
+    padding: 0 clamp(1rem, 3vw, 1.5rem);
+    transition: border-color .25s ease;
+  }
+  .faq details[open], .faq details:hover { border-color: var(--edge-hi); }
+  .faq summary {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 1.15rem 0;
+    cursor: pointer;
+    list-style: none;
+    font-size: 1rem;
+    font-weight: 550;
+    letter-spacing: -.015em;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+";
+    margin-left: auto;
+    font: 400 1.1rem/1 var(--mono);
+    color: var(--fg-dim);
+  }
+  .faq details[open] summary::after { content: "–"; color: var(--violet-hi); }
+  .faq .plat {
+    flex: none;
+    padding: .25rem .5rem;
+    font: 500 .625rem/1 var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--violet);
+    background: rgba(143, 140, 248, .1);
+    border: 1px solid rgba(143, 140, 248, .2);
+    border-radius: 999px;
+    align-self: center;
+  }
+  .faq .body { padding: 0 0 1.3rem; display: grid; gap: .8rem; max-width: 46rem; }
+  .faq .body p { font-size: .9375rem; color: var(--fg-mid); text-wrap: pretty; }
+  .faq .body ol, .faq .body ul { display: grid; gap: .45rem; padding-left: 1.15rem; }
+  .faq .body li { font-size: .9375rem; color: var(--fg-mid); }
+  .faq .body code {
+    font-size: .84em;
+    color: var(--fg);
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: .1rem .35rem;
+  }
+  .faq .body strong { color: var(--fg); font-weight: 550; }
+  .faq .body pre {
+    padding: .8rem 1rem;
+    overflow-x: auto;
+    background: rgba(255, 255, 255, .03);
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+  }
+  .faq .body pre code {
+    padding: 0;
+    background: none;
+    border: 0;
+    font-size: .8125rem;
+    line-height: 1.7;
+    color: var(--fg-mid);
+    white-space: pre;
+  }
+
   /* ---- closing ----------------------------------------------------- */
 
   .closing {
@@ -694,6 +763,7 @@
       <a class="tuck" href="#privacy">Privacy</a>
       <a class="tuck" href="#commands">Commands</a>
       <a class="tuck" href="#watch">Demo</a>
+      <a class="tuck" href="#faq">FAQ</a>
       <a class="pill" href="/app">Open app</a>
     </nav>
   </div>
@@ -927,6 +997,174 @@
             referrerpolicy="strict-origin-when-cross-origin"
             allowfullscreen></iframe>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow"><b>06</b> · Questions, mostly about iPhones</span>
+        <h2 class="display">The things people ask <span class="said inline">before they trust it.</span></h2>
+      </div>
+
+      <div class="faq">
+        <details class="pane">
+          <summary><span class="plat">iOS</span> Why is the iPhone setup different?</summary>
+          <div class="body">
+            <p>
+              iOS only allows web push from an app installed to the Home Screen, and a pair
+              code is single-use. Scan the QR in Safari and you pair <strong>Safari</strong> —
+              not the installed app — and burn the code doing it.
+            </p>
+            <p>So the order matters. <code>tapproval pair --ios</code> walks you through it:</p>
+            <ol>
+              <li>Open the app URL in <strong>Safari</strong> (not Chrome — only Safari can install).</li>
+              <li>Share → <strong>Add to Home Screen</strong>.</li>
+              <li>Launch it from the Home Screen icon, then type the code the CLI printed.</li>
+              <li>Tap <strong>Enable notifications</strong> and allow the iOS prompt.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary><span class="plat">iOS</span> My iPhone notifications stopped, but they used to work</summary>
+          <div class="body">
+            <p>
+              This is the common one, and the fix is the same every time: <strong>pair the phone
+              again, once.</strong>
+            </p>
+            <pre><code>tapproval doctor      # confirm the Mac side is healthy
+tapproval pair --code # then type the code in the installed app</code></pre>
+            <p>
+              iOS evicts a PWA's push subscription on its own — after long periods unused, when
+              storage is reclaimed, on some iOS updates, or if the Home Screen icon was removed
+              and re-added. Nothing on your machine changed and <code>doctor</code> stays green,
+              because the subscription died silently on Apple's side. Re-pairing mints a fresh
+              one.
+            </p>
+            <p>
+              If it still doesn't buzz: check iOS Settings → Notifications → tapproval is
+              allowed, and that Focus / Do Not Disturb isn't filtering it. As a last resort,
+              delete the Home Screen icon, re-install from Safari, and pair again.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary><span class="plat">iOS</span> Why are there no Approve / Deny buttons on my lock screen?</summary>
+          <div class="body">
+            <p>
+              WebKit ignores notification action buttons for web push — unchanged since iOS
+              16.4. On Android and desktop Chrome you answer with one tap from the lock screen;
+              on iPhone you tap the notification, the app opens, and you answer there. It's one
+              extra tap, and the app recovers the pending request even though iOS drops the
+              notification's target URL.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary><span class="plat">iOS</span> The notification says "Tap to review" instead of the command</summary>
+          <div class="body">
+            <p>
+              That phone can't decrypt the payload — it either never got the key or lost it
+              (cleared site data, or it was paired before payload encryption existed). Re-pair
+              and it comes back. The request is still answerable meanwhile; only the preview is
+              missing.
+            </p>
+            <p>
+              If it instead says <strong>"Cannot read this request"</strong>, the phone holds the
+              <em>wrong</em> key — usually because <code>setup</code> was re-run and generated a
+              new one. Same fix: <code>tapproval pair</code>.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>Nothing happens when my agent asks for permission</summary>
+          <div class="body">
+            <p>
+              The hook isn't registered, or the session hasn't reloaded it. A session started
+              before install rewrites its settings file from a startup snapshot and deletes the
+              hook — so <strong>restart your agent</strong> after <code>setup</code>.
+            </p>
+            <p><code>tapproval doctor</code> names the exact failure: config, hook registration, timeout ordering, API reachability, Realtime, revoked devices.</p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>It worked for weeks, then quietly stopped</summary>
+          <div class="body">
+            <p>
+              Usually a hook path that no longer exists — the global package was removed without
+              <code>uninstall</code>, or an older version pointed the hook into an npx cache npm
+              has since pruned. <code>npx tapproval setup</code> fixes both: it copies the runtime
+              to <code>~/.tapproval/runtime/</code> and repoints the hook there.
+            </p>
+            <p>
+              The hook fails safe while broken — every prompt falls back to the terminal and
+              nothing is ever auto-approved, which is also why it's easy to miss.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>The phone never buzzes, but <code>doctor</code> is all green</summary>
+          <div class="body">
+            <p>
+              Check the grace period. With <code>graceSec</code> above 0, a prompt you answer in
+              the terminal within that window is <em>designed</em> never to reach your phone —
+              no row, no push, nothing to dismiss. <code>tapproval notify --grace=0</code> to buzz
+              immediately.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>Can the server read my commands?</summary>
+          <div class="body">
+            <p>
+              No. <code>summary</code>, <code>detail</code> and <code>cwd</code> are encrypted on
+              your machine with AES-256-GCM before anything is sent. The key is generated by the
+              CLI, handed to each phone once inside the single-use pair code, and deleted from
+              the server the moment that code is claimed. What lands in Postgres is one opaque
+              blob; the push itself carries only a generic <em>"Approve Bash?"</em>.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>Can I pair more than one phone?</summary>
+          <div class="body">
+            <p>
+              Yes. <code>tapproval pair</code> adds another device and asks which platform;
+              <code>--ios</code>, <code>--android</code> and <code>--code</code> skip the question.
+              Every paired phone gets the same request, and the first answer wins.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>What happens if I never answer?</summary>
+          <div class="body">
+            <p>
+              The hook waits <code>timeoutSec</code> (300 by default) and then gets out of the
+              way — the prompt goes back to the terminal exactly as it would without tapproval.
+              Silence is never an approval.
+            </p>
+          </div>
+        </details>
+
+        <details class="pane">
+          <summary>Does it work with agents other than Claude Code?</summary>
+          <div class="body">
+            <p>
+              Today it hooks Claude Code's permission prompts. Codex support is an open issue and
+              a small adapter away — the phone side is agent-agnostic.
+            </p>
+          </div>
+        </details>
       </div>
     </div>
   </section>

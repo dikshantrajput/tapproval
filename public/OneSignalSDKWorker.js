@@ -148,13 +148,30 @@ async function fillInBody(id) {
     // nothing. The body tap opens the option list, which is the only real answer.
     const asking = Array.isArray(questions) && questions.length > 0;
 
-    // OneSignal may not have rendered yet. One short retry covers the race; past
-    // that, the generic body stands.
+    // OneSignal may not have rendered yet. Retry a few times, backing off, before
+    // giving up on the race.
     let existing = await notificationsFor(id);
-    if (!existing.length) {
-      await new Promise((r) => setTimeout(r, 600));
+    for (const wait of [400, 700, 1200]) {
+      if (existing.length) break;
+      await new Promise((r) => setTimeout(r, wait));
       existing = await notificationsFor(id);
     }
+
+    // Never show a second notification we cannot prove is a replacement.
+    //
+    // Showing regardless is what puts "Tap to review" and the decrypted body on
+    // screen together. Two separate things have to hold for the replacement to
+    // land, and on iOS neither reliably does: the tag has to match (OneSignal
+    // does not carry `web_push_topic` through as the tag there), and anything
+    // under a different tag has to be closable — which needs `getNotifications()`
+    // to enumerate it, and WebKit returns an empty list. Both failures look the
+    // same from here: we cannot see the notification we were sent to rewrite.
+    //
+    // So an empty list is treated as "cannot replace", not "nothing there". The
+    // generic notification stays and stays alone; the real text is one tap away
+    // on the review page, which is the only path iOS has anyway. Where
+    // enumeration works — Android, desktop Chrome — nothing about this changes.
+    if (!existing.length) return;
 
     // Anything already under our tag is replaced in place by the show below,
     // silently. Anything under a *different* tag would survive it and leave two
@@ -185,6 +202,13 @@ async function fillInBody(id) {
         { action: 'deny', title: 'Deny', icon: '/action-deny.png' },
       ],
     });
+
+    // The pre-show close only covers what had rendered by then. OneSignal's own
+    // notification can still land after ours, under its own tag, and survive the
+    // replacement — the same duplicate, arriving in the other order. Sweep once
+    // more and drop anything for this id that is not the one we just wrote.
+    await new Promise((r) => setTimeout(r, 800));
+    for (const n of await notificationsFor(id)) if (n.tag !== id) n.close();
   } catch {
     // Generic notification stays. Never a thrown error, never a leaked plaintext.
   }

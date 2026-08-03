@@ -31,6 +31,14 @@ export const handler = route(['POST'], async (req) => {
   // that matters is not the alphabet, it is the handful of codes live at any
   // moment. Counting only failures is what makes this a guessing limit rather
   // than a pairing limit.
+  const fp = async (v: string | null) => (v?.trim() ? (await sha256(v.trim())).slice(-8) : null);
+  console.log('[claim] ip source', JSON.stringify({
+    cf: await fp(req.headers.get('cf-connecting-ip')),
+    real: await fp(req.headers.get('x-real-ip')),
+    hops: (req.headers.get('x-forwarded-for') ?? '').split(',').filter((h) => h.trim()).length,
+    resolved: (await sha256(clientIp(req))).slice(-8),
+  }));
+
   if (await ipOverLimit(req, 'claim', CLAIM_FAILURES_PER_HOUR, HOUR_MS)) {
     console.warn('[claim] rate limited (too many failed attempts)');
     return json(429, { error: 'rate_limited', scope: 'hour' });

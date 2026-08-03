@@ -135,8 +135,23 @@
     display: block; border-radius: 7px; object-fit: contain;
     box-shadow: 0 0 0 1px var(--line), 0 6px 18px -10px color-mix(in srgb, var(--accent) 80%, transparent);
   }
+  /* Where "notifications work" lives once the pairing section is gone. */
+  .head .sub {
+    display: flex; align-items: center; gap: 7px;
+    font: 600 11px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ok);
+    padding: 6px 11px; border-radius: 999px;
+    background: var(--ok-soft);
+    border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+  }
+  .head .sub::before {
+    content: ''; width: 7px; height: 7px; border-radius: 999px;
+    background: currentColor; flex: none;
+  }
   .grow { flex: 1 1 auto; min-height: 0; }
   .stack { display: flex; flex-direction: column; gap: 14px; }
+  /* A class with `display` beats the hidden attribute - keep hidden hidden. */
+  [hidden] { display: none !important; }
   .foot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
 
   .card {
@@ -468,14 +483,20 @@
   /* ---- history ---------------------------------------------------------- */
 
   .hist { display: flex; flex-direction: column; gap: 8px; }
-  /* The list is self-evidently the recent requests - the label was just a word
-     taking up thumb-height. Hidden rather than removed: it stays as the
-     accessible name for the group. */
   .hist h2 {
-    position: absolute; width: 1px; height: 1px;
-    margin: -1px; padding: 0; overflow: hidden;
-    clip-path: inset(50%); white-space: nowrap;
+    font: 600 11.5px/1 var(--mono); color: var(--fg-dim);
+    letter-spacing: .2em; text-transform: uppercase;
+    margin-bottom: 2px;
   }
+  /* Waiting and nothing-yet look the same on purpose: same box, same height,
+     so the list settling in does not shift the screen under a thumb. */
+  .hist .placeholder {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--fg-dim); font-size: 14px;
+    padding: 16px 14px; border-radius: 14px;
+    border: 1px dashed var(--line);
+  }
+  .hist .placeholder .spinner { width: 16px; height: 16px; border-width: 2px; }
   .entry {
     border-radius: 14px; overflow: hidden;
     background: var(--glass), var(--surface);
@@ -708,12 +729,28 @@ const isDecided = (status) =>
 
 /** Recent requests, decrypted where they are ciphertext. Read-only cards. */
 async function renderHistory(into) {
+  // First paint waits on the network, and an empty container reads as a broken
+  // screen. Only on the first pass - the poll below re-renders in place and
+  // must not blink the list away every five seconds.
+  const shell = (inner) => { into.innerHTML = `<div class="hist"><h2>Recent</h2>${inner}</div>`; };
+  if (!into.firstChild) {
+    shell(`<div class="placeholder" role="status" aria-live="polite">
+      <span class="spinner"></span><span>Loading...</span>
+    </div>`);
+  }
+
   let rows;
   try {
     const path = mode() === 'hosted' ? '/api/request?history=1' : '/api/history';
     ({ requests: rows } = await (await api(path)).json());
-  } catch { return; }
-  if (!rows?.length) return;
+  } catch {
+    if (!into.querySelector('.entry')) shell(`<div class="placeholder">Could not load recent requests.</div>`);
+    return;
+  }
+  if (!rows?.length) {
+    shell(`<div class="placeholder">Nothing yet - approvals will show up here.</div>`);
+    return;
+  }
 
   const key = store.get('payloadKey') || (await self.AAP.idbGet('payloadKey').catch(() => ''));
   const cards = [];
@@ -750,7 +787,7 @@ async function renderHistory(into) {
       </div>`);
   }
 
-  into.innerHTML = `<div class="hist"><h2>Recent</h2>${cards.join('')}</div>`;
+  shell(cards.join(''));
 
   // Tap a row to see the whole command - the one-line summary is truncated.
   for (const btn of into.querySelectorAll('.item')) {
@@ -818,20 +855,43 @@ async function pairScreen() {
       </div>
     </div>` : '';
 
+  /**
+   * Cheap local answer to "is this browser already subscribed?".
+   *
+   * OneSignal takes a second or two to init, and asking it first means the
+   * pairing prompt either flashes on a phone that does not need it or hides
+   * behind a spinner. Permission plus a live pushManager subscription is the
+   * same thing OneSignal reports, and it is available immediately - so an
+   * already-subscribed phone renders straight to its history with no pairing
+   * section and nothing to wait on. OneSignal still corrects this below.
+   */
+  const alreadySubscribed = await (async () => {
+    try {
+      if (Notification.permission !== 'granted') return false;
+      const reg = await navigator.serviceWorker?.getRegistration('/');
+      return Boolean(await reg?.pushManager.getSubscription());
+    } catch { return false; }
+  })();
+
   el(`
-    <div class="head">${brand}</div>
+    <div class="head">
+      ${brand}
+      <span id="chip" class="sub" ${alreadySubscribed ? '' : 'hidden'}>Subscribed</span>
+    </div>
     <div class="stack grow">
-      <div>
-        <h1>Pair this phone</h1>
-        <p class="dim" style="margin-top:6px">
-          Your machine will ask here before it does anything that needs
-          permission. You approve or deny - nothing else is sent.
-        </p>
-      </div>
-      ${iosNote}
-      <div class="stack" style="gap:10px">
-        <p id="state" aria-live="polite"><span class="dot"></span><span>Checking...</span></p>
-        <button id="enable">Enable notifications</button>
+      <div id="pair" class="stack" ${alreadySubscribed ? 'hidden' : ''}>
+        <div>
+          <h1>Pair this phone</h1>
+          <p class="dim" style="margin-top:6px">
+            Your machine will ask here before it does anything that needs
+            permission. You approve or deny - nothing else is sent.
+          </p>
+        </div>
+        ${iosNote}
+        <div class="stack" style="gap:10px">
+          <p id="state" aria-live="polite"><span class="dot"></span><span>Checking...</span></p>
+          <button id="enable">Enable notifications</button>
+        </div>
       </div>
       <div id="hist"></div>
     </div>
@@ -840,6 +900,11 @@ async function pairScreen() {
   const state = $('state');
   const label = state.lastElementChild;
   const btn = $('enable');
+  const pair = $('pair');
+
+  /** Subscribed means there is nothing to do here - the section stays away,
+      and the header carries the state instead. */
+  const show = (live) => { pair.hidden = live; $('chip').hidden = !live; };
 
   if (isPaired()) {
     const hist = $('hist');
@@ -853,6 +918,7 @@ async function pairScreen() {
   if (isIOS && !isStandalone) {
     label.textContent = 'Open this from the Home Screen icon - Safari cannot subscribe.';
     btn.disabled = true;
+    show(false);
     return;
   }
 
@@ -895,6 +961,7 @@ async function pairScreen() {
       state.classList.toggle('on', live);
       btn.disabled = live;
       btn.textContent = live ? 'Subscribed' : 'Enable notifications';
+      show(live);
     };
     sync();
     OneSignal.Notifications.addEventListener('permissionChange', sync);
@@ -1285,15 +1352,40 @@ const done = (status, opts = {}) => {
  * The payload key goes to IndexedDB as well as localStorage: the service worker
  * needs it to turn "Tap to review" into the actual command, and a worker cannot
  * see localStorage.
+ *
+ * Returns `{ ok }` plus a reason, never a bare boolean. Four unrelated failures
+ * reach here — a dead code, a rate limit, no network, and a storage write that
+ * fails *after* the server already spent the code — and collapsing them into
+ * "that code did not work" made every one of them look like the first. The
+ * advice differs in each case, and for the last one the pairing actually
+ * succeeded, so telling the user to run pair again was wrong.
  */
 async function claim(code) {
-  const res = await fetch('/api/claim', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ code }),
-  });
-  if (!res.ok) return false;
-  const d = await res.json();
+  let res;
+  try {
+    res = await fetch('/api/claim', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    return { ok: false, reason: 'offline' };
+  }
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      reason: res.status === 429 ? 'throttled' : res.status >= 500 ? 'server' : 'dead',
+    };
+  }
+
+  let d;
+  try {
+    d = await res.json();
+  } catch {
+    // 200 with an unreadable body: the code is spent and we hold nothing.
+    return { ok: false, reason: 'server' };
+  }
 
   store.set('mode', 'hosted');
   store.set('phoneToken', d.phone_token);
@@ -1301,13 +1393,29 @@ async function claim(code) {
   store.set('deviceId', d.device_id);
   if (d.onesignal_app_id) store.set('onesignalAppId', d.onesignal_app_id);
 
-  await self.AAP.saveSecrets({
-    payloadKey: d.payload_key,
-    phoneToken: d.phone_token,
-    deviceId: d.device_id,
-  });
-  return true;
+  try {
+    await self.AAP.saveSecrets({
+      payloadKey: d.payload_key,
+      phoneToken: d.phone_token,
+      deviceId: d.device_id,
+    });
+  } catch {
+    // localStorage has the credentials, IndexedDB does not. The phone is paired
+    // and can review requests; only the service worker's own decryption is out,
+    // so notification bodies stay generic. Not a pairing failure — and emphatically
+    // not one to fix with a fresh code, which would now be refused anyway.
+    return { ok: true, reason: 'no-idb' };
+  }
+  return { ok: true };
 }
+
+/** What to put on screen for each way a claim can fail. */
+const CLAIM_ERROR = {
+  dead: 'That code has expired or was already used - codes last two minutes and work once. Run pair again for a fresh one.',
+  throttled: 'Too many pairing attempts from this network. Wait a few minutes and try the same code again, or run pair again if it has expired.',
+  server: 'The pairing server could not be reached properly. Nothing was paired - run pair again in a moment.',
+  offline: 'No connection to the pairing server. Check the network on this phone, then try again - the code is still good for its two minutes.',
+};
 
 async function boot() {
   loading();
@@ -1316,9 +1424,7 @@ async function boot() {
     history.replaceState(null, '', APP_ROOT);
     // Dead end into a retry rather than an outcome card: the code is consumed
     // either way, and the screen that can accept a fresh one is right there.
-    if (!claimed) {
-      return unpairedScreen('That code has expired or was already used. Run pair again.');
-    }
+    if (!claimed.ok) return unpairedScreen(CLAIM_ERROR[claimed.reason]);
   }
 
   // `?a=allow` is the notification action button's URL, used by desktop Chrome and
@@ -1402,15 +1508,16 @@ function unpairedScreen(msg) {
     if (!isPairCodeStr(code)) return;
     btn.disabled = true;
     btn.textContent = 'Pairing...';
-    let claimed = false;
+    let claimed;
     try {
       claimed = await claim(code);
-    } catch {}
-    if (!claimed) {
-      // Same message for expired, already-claimed and mistyped: the phone cannot
-      // tell them apart, and a fresh code fixes all three.
-      return unpairedScreen('That code did not work - codes last two minutes and work once. Run pair again.');
+    } catch (e) {
+      claimed = { ok: false, reason: 'server' };
     }
+    // Expired, already-claimed and mistyped still share one message — the phone
+    // genuinely cannot tell those three apart, and a fresh code fixes all three.
+    // A rate limit, a dead network and a failed storage write are not among them.
+    if (!claimed.ok) return unpairedScreen(CLAIM_ERROR[claimed.reason]);
     return pairScreen();
   };
 

@@ -280,21 +280,12 @@
     border-color: rgba(143, 140, 248, .28);
   }
   .hero h1 { margin: 2rem auto 0; max-width: 18ch; }
-
-  /* The dumb-simple restatement, sitting on its own so it reads as an aside
-     rather than another clause of the pitch. */
-  .onething {
-    margin-top: .85rem;
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: clamp(1.05rem, 2vw, 1.3rem);
-    color: var(--fg-dim);
-  }
   .hero .lede { margin-inline: auto; text-align: center; }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
     gap: .75rem;
     margin-top: 2.25rem;
@@ -304,7 +295,6 @@
   .install {
     display: inline-flex;
     align-items: center;
-    margin-top: 1.5rem;
     background: rgba(255, 255, 255, .035);
     border: 1px solid var(--edge);
     border-radius: 11px;
@@ -400,7 +390,6 @@
     gap: .4rem;
     font: 500 .625rem/1 var(--mono);
     letter-spacing: .14em;
-    text-transform: uppercase;
     color: var(--fg-dim);
   }
   .notif .from img { width: .9rem; height: .9rem; border-radius: 4px; }
@@ -773,7 +762,6 @@
   <div class="wrap">
     <div class="chips">
       <span class="chip"><i></i>A hook for Claude Code</span>
-      <span class="chip open">Free &amp; open source · MIT</span>
     </div>
 
     <h1 class="display">
@@ -786,16 +774,11 @@
       and it keeps working.
     </p>
 
-    <p class="onething">That's it. It does one thing.</p>
-
     <div class="actions">
-      <a class="pill" href="https://github.com/dikshantrajput/tapproval#readme" target="_blank" rel="noopener">Get started</a>
-      <a class="pill ghost" href="#watch">Watch the demo</a>
-    </div>
-
-    <div class="install">
-      <code><span class="sigil" aria-hidden="true">$</span>npx <b>tapproval setup</b></code>
-      <button type="button" id="copy" aria-label="Copy install command">Copy</button>
+      <div class="install">
+        <code><span class="sigil" aria-hidden="true">$</span>npx <b>tapproval setup</b></code>
+        <button type="button" id="copy" aria-label="Copy install command">Copy</button>
+      </div>
     </div>
 
     <figure class="scene" id="scene">

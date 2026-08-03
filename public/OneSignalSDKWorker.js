@@ -1,5 +1,11 @@
-importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 importScripts('/aap-crypto.js');
+
+/* OneSignal's own SDK is imported at the BOTTOM of this file, not here, and the
+ * order is load-bearing — see the note above the import. Nothing in this file
+ * runs at import time, so the listeners below are registered first either way. */
+
+/** Chrome and friends. iOS is left on OneSignal's own click path — see below. */
+const IS_IOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent ?? '');
 
 /**
  * Android Chrome will not foreground itself to open an action button's URL
@@ -7,8 +13,8 @@ importScripts('/aap-crypto.js');
  * is dropped. So we answer straight from the service worker with a fetch(),
  * which needs no window at all.
  *
- * Body taps are left alone: OneSignal opens the launch URL for those, and
- * that path already works.
+ * Body taps are handled here too, everywhere except iOS: OneSignal's launch-URL
+ * navigation loses to an already-open tab and lands on the marketing page.
  *
  * Hosted mode adds a second job. The push deliberately carries no payload — only
  * "Approve Bash?" and "Tap to review" — because OneSignal must never see a
@@ -45,14 +51,62 @@ function findRequestId(notification) {
 
 self.addEventListener('notificationclick', (event) => {
   const verdict = event.action;
-  if (verdict !== 'allow' && verdict !== 'deny') return; // body tap → OneSignal
-
   const id = findRequestId(event.notification);
-  if (!id) return;
 
+  if (verdict === 'allow' || verdict === 'deny') {
+    if (!id) return;
+    event.notification.close();
+    event.waitUntil(answer(id, verdict));
+    return;
+  }
+
+  // Body tap. OneSignal used to own this, and on Android without the app
+  // installed it lands on the marketing page instead of the request: the launch
+  // URL is only honoured when there is no window to reuse, and an already-open
+  // tab gets focused wherever it happens to be sitting. From here the request id
+  // is in hand, so navigate to it ourselves and stop the SDK's handler from
+  // running a second, conflicting navigation.
+  //
+  // iOS is deliberately excluded. The body tap is the ONLY way to answer there,
+  // OneSignal's path already works, and `clients.navigate` / `openWindow` are
+  // exactly the calls WebKit is unreliable about — taking over would risk a tap
+  // that opens nothing at all on the one platform with no fallback.
+  if (IS_IOS) return;
+
+  event.stopImmediatePropagation();
   event.notification.close();
-  event.waitUntil(answer(id, verdict));
+  event.waitUntil(openReview(id));
 });
+
+/**
+ * Focus the request, wherever a window for it already is.
+ *
+ * `navigate()` on an existing client rather than a bare `focus()`: the phone
+ * almost always has a tab open from pairing, and focusing it without navigating
+ * is precisely the bug — you get whatever page that tab was on. `openWindow` is
+ * the fallback for the no-window case and for a client that refuses to navigate.
+ */
+async function openReview(id) {
+  // No id means this is one of our own outcome notifications, or a push we could
+  // not parse. The app root still resolves to something useful: it looks for a
+  // pending request on boot.
+  const target = new URL(id ? `/r/${id}` : '/app', self.registration.scope).href;
+  const origin = new URL(target).origin;
+
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of windows) {
+    if (new URL(client.url).origin !== origin) continue;
+    try {
+      if (!client.navigate) continue;
+      const navigated = await client.navigate(target);
+      await (navigated ?? client).focus();
+      return;
+    } catch {
+      // Cross-origin, uncontrolled, or WebKit. Try the next window, then a new one.
+    }
+  }
+  await self.clients.openWindow(target).catch(() => {});
+}
 
 async function answer(id, verdict) {
   // Hosted mode authenticates with this phone's own token; self-hosted has none
@@ -113,9 +167,12 @@ async function answer(id, verdict) {
 /* --------------------------------------------------- filling in the real body */
 
 /**
- * Runs after OneSignal's own push handler has already shown the generic
- * notification. We re-show with the same tag and `renotify: false`, which
- * replaces the content in place without buzzing the phone a second time.
+ * Races OneSignal's own push handler, which shows the generic notification. This
+ * listener is registered first now (the SDK is imported last, for the click
+ * ordering), so it may well start before the generic one is on screen — which is
+ * what the backoff in `fillInBody` is waiting for. We then re-show under the tag
+ * that notification actually has, with `renotify: false`, replacing the content
+ * in place without buzzing the phone a second time.
  */
 self.addEventListener('push', (event) => {
   let id = null;
@@ -178,18 +235,44 @@ async function fillInBody(id) {
     // notifications on screen, so close those explicitly first.
     for (const n of existing) if (n.tag !== id) n.close();
 
-    const title = asking
-      ? 'Claude needs your answer'
+    // Replace under the tag the notification on screen actually has, not the tag
+    // we wish it had. On Android those are the same string and nothing changes.
+    // On iOS OneSignal does not carry `web_push_topic` through as the tag, so
+    // showing under `id` *adds* a notification rather than replacing one — and
+    // `close()` above is unreliable in WebKit, so the generic "Tap to review" is
+    // still sitting there. That is the two-notifications-per-request case: one
+    // generic, one with the real body. Matching the live tag makes the OS do the
+    // replacement for us, which is the one mechanism that does work there.
+    const tag = existing[0]?.tag || id;
+
+    // A question's content is the question and its options, so put them where a
+    // notification is actually read: the question in the title, the option labels
+    // in the body. "Claude needs your answer" over the question text wasted the
+    // one line the OS shows in full on the thing the user already knows.
+    // Verdict requests keep the shape they had — the tool name is the title and
+    // the command is the body.
+    const q = asking ? questions[0] : null;
+    const title = q
+      ? (q.question.length > 64 ? `${q.question.slice(0, 63)}…` : q.question)
       : (existing[0]?.title ?? `Approve ${r.tool}?`);
+    const body = q
+      ? [
+        (q.options ?? []).map((o) => o.label).filter(Boolean).join(' · '),
+        questions.length > 1 ? `+${questions.length - 1} more to answer` : '',
+      ].filter(Boolean).join('\n').slice(0, 180)
+      : summary.slice(0, 180);
 
     await self.registration.showNotification(title, {
-      body: summary.slice(0, 180),
-      tag: id,
+      body,
+      tag,
       renotify: false,          // replace in place, do not alert again
       requireInteraction: true,
       data: { request_id: id },
       icon: '/icon-192.png',
-      badge: '/favicon-32.png',
+      // A mask, not a picture: Android keeps only the alpha channel here. The
+      // favicon that used to be in this slot is an opaque square, so it masked
+      // down to a blank blob. See scripts/make-action-icons.mjs.
+      badge: '/notification-badge.png',
       // Android renders these; iOS ignores the array entirely and always has.
       //
       // `icon` per action instead of an emoji in the title: Chrome gives the icon
@@ -207,8 +290,19 @@ async function fillInBody(id) {
     // notification can still land after ours, under its own tag, and survive the
     // replacement — the same duplicate, arriving in the other order. Sweep once
     // more and drop anything for this id that is not the one we just wrote.
-    await new Promise((r) => setTimeout(r, 800));
-    for (const n of await notificationsFor(id)) if (n.tag !== id) n.close();
+    // Keyed on `tag`, not `id`: that is the tag our own notification went out
+    // under, and comparing against `id` would close the replacement itself
+    // wherever the two differ.
+    // Swept twice, 800ms and 3s. Once was enough when OneSignal's own handler ran
+    // first; now that this listener is registered ahead of it (the SDK is imported
+    // last, for the click ordering) the generic notification can land noticeably
+    // later, and a single sweep can run before the duplicate it was meant to
+    // remove exists. The second pass costs one enumeration and closes nothing on
+    // the common path.
+    for (const wait of [800, 2200]) {
+      await new Promise((r) => setTimeout(r, wait));
+      for (const n of await notificationsFor(id)) if (n.tag !== tag) n.close();
+    }
   } catch {
     // Generic notification stays. Never a thrown error, never a leaked plaintext.
   }
@@ -229,3 +323,16 @@ async function notificationsFor(id) {
   const all = await self.registration.getNotifications();
   return all.filter((n) => n.tag === id || findRequestId(n) === id);
 }
+
+/* ------------------------------------------------------ OneSignal, imported last
+ *
+ * Deliberately the last line in the file, and not for tidiness.
+ *
+ * `importScripts` registers the SDK's own `notificationclick` and `push`
+ * listeners at the moment it runs, and listeners on the same target fire in
+ * registration order. Ours must be first, because a body tap calls
+ * `stopImmediatePropagation()` to keep the SDK from running its own navigation
+ * on top of the one we just did. Move this back to the top of the file and
+ * Android goes back to opening the marketing page on a notification tap.
+ */
+importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
